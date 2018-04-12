@@ -1,6 +1,9 @@
 from steam import SteamClient
 from dota2 import Dota2Client, util
+from google.protobuf.json_format import MessageToDict
 import logging
+import json
+from  collections import OrderedDict
 
 #logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s', level=logging.DEBUG)
 
@@ -22,11 +25,12 @@ def read_ids_from_file():
     with open('match_id.txt', 'r') as file:
         lines = file.readlines()
         for line in lines:
-            match_id = int(line)
-            if match_id not in ids:
-                ids.add(match_id)
-                job_id = dota.request_match_details(match_id)
-                dota.wait_msg(job_id, timeout=10)
+            if line.isdigit:
+                match_id = int(line)
+                if match_id not in ids:
+                    ids.add(match_id)
+                    job_id = dota.request_match_details(match_id)
+                    dota.wait_msg(job_id, timeout=10)
 
     print("finished")
     with open('match_links.txt', 'a') as file:
@@ -39,13 +43,25 @@ def read_ids_from_file():
 
 @dota.on('match_details')
 def process_match_details(match_id, eresult, match):
-    link = util.replay_url_from_match(match)
-    links.add(link)
+    # Nevermore has id == 11
+    match_dict = MessageToDict(match)
+
+    if match_dict['matchOutcome'] == 'k_EMatchOutcome_RadiantVictory':
+        player_win_num = 0
+    else:
+        player_win_num = 128
+
+    if match_dict['players'][0]['playerSlot'] == player_win_num:
+        player = match_dict['players'][0]
+    else:
+        player = match_dict['players'][1]
+
+    if player['heroId'] == 11:
+        link = util.replay_url_from_match(match)
+        links.add(link)
 
 
 client.cli_login()
 client.run_forever()
-
-
 
 
