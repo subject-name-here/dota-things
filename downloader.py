@@ -3,9 +3,8 @@ from dota2 import Dota2Client, util
 from google.protobuf.json_format import MessageToDict
 import logging
 import json
-from  collections import OrderedDict
 
-#logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s', level=logging.DEBUG)
+# logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s', level=logging.DEBUG)
 
 client = SteamClient()
 dota = Dota2Client(client)
@@ -63,5 +62,3 @@ def process_match_details(match_id, eresult, match):
 
 client.cli_login()
 client.run_forever()
-
-
