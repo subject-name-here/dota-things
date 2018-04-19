@@ -54,6 +54,7 @@ fabric.properties
 .gradletasknamecache
 .gradle/
 build/
+target/
 bin/
 
 example.dem
