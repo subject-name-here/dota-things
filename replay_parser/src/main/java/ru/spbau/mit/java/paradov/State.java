@@ -20,7 +20,7 @@ public class State {
       Data of the game in this moment.
     *****************************/
 
-    /** Time of the state. */
+    /** Time of the state. Measured in ticks. */
     int time;
 
     /** Points of our team. */
@@ -42,8 +42,7 @@ public class State {
     /** Level of our hero. */
     int lvl;
 
-    /** Gold of our hero. */
-    int gold;
+    /* Gold of our hero could be here. Useless, unless we don't purchase items. */
 
     /** HP of our hero. */
     int hp;
@@ -57,6 +56,14 @@ public class State {
     /** Maximum of our mana. */
     int maxMana;
 
+    /** Gets the facing of this unit on a 360 degree rotation. */
+    int facing;
+
+    boolean wasRecentlyDamagedByHero;
+
+    boolean wasRecentlyDamagedByTower;
+
+    boolean wasRecentlyDamagedByCreep;
 
     /*/***************************
       Data of enemy in this moment.
@@ -67,6 +74,11 @@ public class State {
      * If enemy is not visible, other data is irrelevant.
      */
     boolean isEnemyVisible;
+
+    /** Default value means that enemy is not visible. */
+    int enemyX = -10000;
+
+    int enemyY = -10000;
 
     /** HP of enemy hero. */
     int enemyHp;
@@ -79,6 +91,9 @@ public class State {
 
     /** Maximum of enemy mana. */
     int enemyMaxMana;
+
+    /** Level of enemy hero. */
+    int enemyLvl;
 
     /*/***************************
       Data of nearby creeps.

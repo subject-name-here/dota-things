@@ -10,7 +10,7 @@ headers = {
 
 
 matches = set()
-for it in range(100):
+for it in range(40):
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text
