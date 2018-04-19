@@ -55,6 +55,10 @@ fabric.properties
 .gradle/
 build/
 target/
+
+# Compiled class file
+*.class
+
 bin/
 
 example.dem
