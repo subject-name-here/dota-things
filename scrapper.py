@@ -10,7 +10,7 @@ headers = {
 
 
 matches = set()
-for it in range(40):
+for it in range(200):
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text
@@ -23,7 +23,7 @@ for it in range(40):
     time.sleep(100)
 
 
-with open('match_id.txt', 'a') as file:
+with open('match_id.txt', 'w') as file:
     for match in matches:
         file.write(match + '\n')
 

@@ -42,7 +42,8 @@ public class State {
     /** Level of our hero. */
     int lvl;
 
-    /* Gold of our hero could be here. Useless, unless we don't purchase items. */
+    /* Gold of our hero. */
+    int gold;
 
     /** HP of our hero. */
     int hp;
@@ -57,7 +58,7 @@ public class State {
     int maxMana;
 
     /** Gets the facing of this unit on a 360 degree rotation. */
-    int facing;
+    float facing;
 
     boolean wasRecentlyDamagedByHero;
 
@@ -75,10 +76,9 @@ public class State {
      */
     boolean isEnemyVisible;
 
-    /** Default value means that enemy is not visible. */
-    int enemyX = -10000;
+    int enemyX;
 
-    int enemyY = -10000;
+    int enemyY;
 
     /** HP of enemy hero. */
     int enemyHp;
@@ -94,6 +94,8 @@ public class State {
 
     /** Level of enemy hero. */
     int enemyLvl;
+
+    float enemyFacing;
 
     /*/***************************
       Data of nearby creeps.
