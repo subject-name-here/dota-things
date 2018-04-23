@@ -10,7 +10,7 @@ headers = {
 
 
 matches = set()
-for it in range(200):
+for it in range(108):
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text
@@ -19,6 +19,7 @@ for it in range(200):
             matches.add(r)
     except BaseException as e:
         print(e)
+    
     print("Sleeping...")
     time.sleep(100)
 

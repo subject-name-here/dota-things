@@ -7,9 +7,11 @@ import ru.spbau.mit.java.paradov.util.IntPair;
 import skadistats.clarity.Clarity;
 import skadistats.clarity.model.*;
 import skadistats.clarity.processor.entities.OnEntityCreated;
+import skadistats.clarity.processor.entities.OnEntityPropertyChanged;
 import skadistats.clarity.processor.entities.OnEntityUpdated;
 import skadistats.clarity.processor.gameevents.OnCombatLogEntry;
 import skadistats.clarity.processor.gameevents.OnGameEvent;
+import skadistats.clarity.processor.reader.OnTickEnd;
 import skadistats.clarity.processor.reader.OnTickStart;
 import skadistats.clarity.processor.runner.Context;
 import skadistats.clarity.processor.runner.SimpleRunner;
@@ -17,6 +19,8 @@ import skadistats.clarity.source.MappedFileSource;
 import skadistats.clarity.wire.common.proto.Demo;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 
 import static ru.spbau.mit.java.paradov.Constants.*;
 
@@ -63,7 +67,6 @@ public class Parser {
             states[i] = new State();
             states[i].ourTeam = winnerTeam - 2;
             states[i].enemyName = enemyName;
-            states[i].time = i;
         }
     }
 
@@ -76,11 +79,6 @@ public class Parser {
         return new IntPair(beginTick, endTick);
     }
 
-
-
-    private boolean isCreep(Entity e) {
-        return e.getDtClass().getDtName().startsWith("CDOTA_BaseNPC_Creep");
-    }
 
 
     private EntityType getEntityType(Entity e) {
@@ -97,6 +95,24 @@ public class Parser {
                     EntityType.ENEMY_TOWER;
         }
 
+        if (entityName.startsWith("CDOTA_BaseNPC_Creep")) {
+            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
+                    EntityType.OUR_CREEP :
+                    EntityType.ENEMY_CREEP;
+        }
+
+        if (entityName.startsWith("CDOTATeam")) {
+            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
+                    EntityType.OUR_TEAM :
+                    EntityType.ENEMY_TEAM;
+        }
+
+        if (entityName.startsWith("CDOTA_Data")) {
+            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
+                    EntityType.OUR_DATA :
+                    EntityType.ENEMY_DATA;
+        }
+
 
         return EntityType.UNKNOWN;
     }
@@ -108,17 +124,20 @@ public class Parser {
     private void saveInfoFromEntity(Entity e) {
         switch (getEntityType(e)) {
             case OUR_HERO:
-                states[tick].hp = e.getProperty(HP);
-                states[tick].maxHp = e.getProperty(MAX_HP);
-                states[tick].mana = ((Float) e.getProperty(MANA)).intValue();
-                states[tick].maxMana = ((Float) e.getProperty(MAX_MANA)).intValue();
-                states[tick].lvl = e.getProperty(LVL);
+                states[tick].ourHp = e.getProperty(HP);
+                states[tick].ourMaxHp = e.getProperty(MAX_HP);
+                states[tick].ourMana = ((Float) e.getProperty(MANA)).intValue();
+                states[tick].ourMaxMana = ((Float) e.getProperty(MAX_MANA)).intValue();
+                states[tick].ourLvl = e.getProperty(LVL);
                 states[tick].ourX = Util.getCoordFromEntity(e).fst;
                 states[tick].ourY = Util.getCoordFromEntity(e).snd;
-                states[tick].facing = ((Vector) e.getProperty(FACING)).getElement(1);
+                states[tick].ourFacing = ((Vector) e.getProperty(FACING)).getElement(1);
+                states[tick].ourAttackDamage = (Integer) e.getProperty(ATTACK_DAMAGE_BONUS)
+                        + ((Integer) e.getProperty(ATTACK_DAMAGE_MIN) + (Integer) e.getProperty(ATTACK_DAMAGE_MAX)) / 2;
                 break;
 
             case ENEMY_HERO:
+                states[tick].isEnemyVisible = ((Integer) e.getProperty(VISIBILITY) & (1 << winnerTeam)) != 0;
                 states[tick].enemyHp = e.getProperty(HP);
                 states[tick].enemyMaxHp = e.getProperty(MAX_HP);
                 states[tick].enemyMana = ((Float) e.getProperty(MANA)).intValue();
@@ -127,14 +146,32 @@ public class Parser {
                 states[tick].enemyX = Util.getCoordFromEntity(e).fst;
                 states[tick].enemyY = Util.getCoordFromEntity(e).snd;
                 states[tick].enemyFacing = ((Vector) e.getProperty(FACING)).getElement(1);
+                states[tick].enemyAttackDamage = (Integer) e.getProperty(ATTACK_DAMAGE_BONUS)
+                        + ((Integer) e.getProperty(ATTACK_DAMAGE_MIN) + (Integer) e.getProperty(ATTACK_DAMAGE_MAX)) / 2;
                 break;
 
             case OUR_TOWER:
                 states[tick].ourTowerHp = e.getProperty(HP);
+                states[tick].ourTowerMaxHp = e.getProperty(MAX_HP);
                 break;
 
             case ENEMY_TOWER:
                 states[tick].enemyTowerHp = e.getProperty(HP);
+                states[tick].enemyTowerMaxHp = e.getProperty(MAX_HP);
+                break;
+
+            case OUR_TEAM:
+                states[tick].ourScore = Util.getScoreFromEntity(e);
+                break;
+
+            case ENEMY_TEAM:
+                states[tick].enemyScore = Util.getScoreFromEntity(e);
+                break;
+
+            case OUR_DATA:
+                states[tick].ourGold = (Integer) e.getProperty("m_vecDataTeam.0000.m_iReliableGold")
+                        + (Integer) e.getProperty("m_vecDataTeam.0000.m_iUnreliableGold");
+
                 break;
         }
     }
@@ -142,8 +179,13 @@ public class Parser {
     @OnTickStart
     public void onTickStart(Context ctx, boolean synthetic) {
         tick = ctx.getTick();
+    }
 
-
+    @OnTickEnd
+    public void onTickEnd(Context ctx, boolean synthetic) {
+        if (gameState == 5) {
+            Util.stateClosure(tick, states);
+        }
     }
 
     @OnEntityCreated
@@ -157,26 +199,45 @@ public class Parser {
             return;
         }
 
+        if (e.getDtClass().getDtName().startsWith("CDOTA_Ability_")) {
+            //System.out.println(tick);
+            //System.out.println(e);
+        }
+
+        states[tick].time = tick;
         saveInfoFromEntity(e);
 
+    }
+
+    private String compileName(String attackerName, boolean isIllusion, Integer team) {
+        return attackerName != null ? attackerName + (isIllusion ? " (illusion)" : "") + team.toString(): "UNKNOWN";
+    }
+
+    private String getAttackerNameCompiled(CombatLogEntry cle) {
+        return compileName(cle.getAttackerName(), cle.isAttackerIllusion(), cle.getAttackerTeam());
+    }
+
+    private String getTargetNameCompiled(CombatLogEntry cle) {
+        return compileName(cle.getTargetName(), cle.isTargetIllusion(), cle.getTargetTeam());
     }
 
     @OnCombatLogEntry
     public void onCombatLogEntry(CombatLogEntry cle) {
         String time = "[Tick " + tick + "]";
+        //System.out.println(cle);
         switch (cle.getType()) {
             case DOTA_COMBATLOG_DAMAGE:
-                /*log.info("{} {} hits {}{} for {} damage{}",
+                log.info("{} {} hits {}{} for {} damage{}",
                         time,
                         getAttackerNameCompiled(cle),
                         getTargetNameCompiled(cle),
-                        cle.getInflictorName().equals("0") ? String.format(" with %s", cle.getInflictorName()) : "",
+                        !cle.getInflictorName().equals("dota_unknown") ? String.format(" with %s", cle.getInflictorName()) : "",
                         cle.getValue(),
                         cle.getHealth() != 0 ? String.format(" (%s->%s)", cle.getHealth() + cle.getValue(), cle.getHealth()) : ""
-                );*/
+                );
                 break;
             case DOTA_COMBATLOG_ABILITY:
-                /*log.info("{} {} {} ability {} (lvl {}){}{}",
+                log.info("{} {} {} ability {} (lvl {}){}{}",
                         time,
                         getAttackerNameCompiled(cle),
                         cle.isAbilityToggleOn() || cle.isAbilityToggleOff() ? "toggles" : "casts",
@@ -184,7 +245,7 @@ public class Parser {
                         cle.getAbilityLevel(),
                         cle.isAbilityToggleOn() ? " on" : cle.isAbilityToggleOff() ? " off" : "",
                         cle.getTargetName().equals("0") ? " on " + getTargetNameCompiled(cle) : ""
-                );*/
+                );
                 break;
             case DOTA_COMBATLOG_ITEM:
                 /*log.info("{} {} uses {}",
@@ -201,6 +262,7 @@ public class Parser {
                     beginTick = tick;
                 } else if (gameState == 5) {
                     endTick = tick;
+
                 }
                 gameState = cle.getValue();
                 break;
@@ -215,6 +277,21 @@ public class Parser {
                 }
                 break;*/
         }
+    }
+
+    @OnEntityPropertyChanged(classPattern = ".*", propertyPattern = ".*")
+    public void onEntityPropertyChanged(Context ctx, Entity e, FieldPath fp) {
+        if (tick < 3500 || tick > 4000) {
+            return;
+        }
+
+        /*System.out.format(
+                "%6d %s: %s = %s\n",
+                ctx.getTick(),
+                e.getDtClass().getDtName(),
+                e.getDtClass().getNameForFieldPath(fp),
+                e.getPropertyForFieldPath(fp)
+        );*/
     }
 
     public void run() throws Exception {

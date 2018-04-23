@@ -20,14 +20,14 @@ public class State {
       Data of the game in this moment.
     *****************************/
 
-    /** Time of the state. Measured in ticks. */
+    /** Time of the state. Measured in ticks. If 0, state is invalid. */
     int time;
 
     /** Points of our team. */
     int ourScore;
 
     /** Points of enemy team. */
-    int theirScore;
+    int enemyScore;
 
     /*/***************************
       Data of our Nevermore in this moment.
@@ -39,32 +39,42 @@ public class State {
     /** Coordinate Y. */
     int ourY;
 
-    /** Level of our hero. */
-    int lvl;
+    /** The facing of this unit on a 360 degree rotation. */
+    float ourFacing;
 
-    /* Gold of our hero. */
-    int gold;
+    /** Level of our hero. If 0, basic data (coords, hp, mana, lvl) of our Nevermore is invalid. */
+    int ourLvl;
 
-    /** HP of our hero. */
-    int hp;
+    int ourHp;
 
-    /** Maximum of our HP. */
-    int maxHp;
+    int ourMaxHp;
 
-    /** Mana of our hero. */
-    int mana;
+    int ourMana;
 
-    /** Maximum of our mana. */
-    int maxMana;
+    int ourMaxMana;
 
-    /** Gets the facing of this unit on a 360 degree rotation. */
-    float facing;
+    int ourAttackDamage;
 
-    boolean wasRecentlyDamagedByHero;
+    /** Gold of our hero. If -1, gold data is invalid. */
+    int ourGold = -1;
 
-    boolean wasRecentlyDamagedByTower;
+    /** Is castable ability "Shadowraze", near. */
+    boolean isOurAbility1Available;
 
-    boolean wasRecentlyDamagedByCreep;
+    /** Is castable ability "Shadowraze", medium. */
+    boolean isOurAbility2Available;
+
+    /** Is castable ability "Shadowraze", far. */
+    boolean isOurAbility3Available;
+
+    /** Is castable ability "Requiem of Souls".*/
+    boolean isOurAbility4Available;
+
+    int timeSinceDamagedByHero;
+
+    int timeSinceDamagedByTower;
+
+    int timeSinceDamagedByCreep;
 
     /*/***************************
       Data of enemy in this moment.
@@ -72,7 +82,7 @@ public class State {
 
     /**
      * Flag, detecting if enemy visible. Visibility equals to have distance less or equal 1600.
-     * If enemy is not visible, other data is irrelevant.
+     * If enemy is not visible, other data is irrelevant. // TODO: think about it.
      */
     boolean isEnemyVisible;
 
@@ -92,10 +102,13 @@ public class State {
     /** Maximum of enemy mana. */
     int enemyMaxMana;
 
-    /** Level of enemy hero. */
+    /** Level of enemy hero. If 0, data of enemy is invalid. */
     int enemyLvl;
 
+    /** The facing of this unit on a 360 degree rotation. */
     float enemyFacing;
+
+    int enemyAttackDamage;
 
     /*/***************************
       Data of nearby creeps.
@@ -142,8 +155,42 @@ public class State {
     /** HP of our tower. */
     int ourTowerHp;
 
+    int ourTowerMaxHp;
+
     /** HP of enemy tower. If tower isn't visible, it's set either as max, or as last known value. */
     int enemyTowerHp;
+
+    int enemyTowerMaxHp;
+
+    @Override
+    public String toString() {
+        if (ourTeam == 2) {
+            System.out.printf("DATA: Our Nevermore vs %s. ", enemyName);
+            System.out.printf("Tick: %d. Score: %d : %d\n", time, ourScore, enemyScore);
+        } else {
+            System.out.printf("DATA: %s vs Our Nevermore. ", enemyName);
+            System.out.printf("Tick: %d. Score: %d : %d\n", time, enemyScore, ourScore);
+        }
+
+        System.out.printf("OUR HERO DATA. HP: %d / %d  |  ", ourHp, ourMaxHp);
+        System.out.printf("Mana: %d / %d  |  ", ourMana, ourMaxMana);
+        System.out.printf("Level: %d  |  ", ourLvl);
+        System.out.printf("Attack damage: %d  |  ", ourAttackDamage);
+        System.out.printf("Gold: %d \n", ourGold);
+        System.out.printf("Coordinates: (%d, %d); facing %f \n", ourX, ourY, ourFacing);
+
+        System.out.print("OPPONENT DATA. ");
+        System.out.printf("HP: %d / %d  |  ", enemyHp, enemyMaxHp);
+        System.out.printf("Mana: %d / %d  |  ", enemyMana, enemyMaxMana);
+        System.out.printf("Level: %d  |  ", enemyLvl);
+        System.out.printf("Attack damage: %d \n", enemyAttackDamage);
+        if (isEnemyVisible) {
+            System.out.printf("Coordinates: (%d, %d); facing %f \n", enemyX, enemyY, enemyFacing);
+        } else {
+            System.out.printf("Coordinates: (%d, %d); Enemy isn't visible :(\n", enemyX, enemyY);
+        }
+        return "";
+    }
 
 
 }

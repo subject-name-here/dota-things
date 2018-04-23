@@ -3,6 +3,7 @@ from dota2 import Dota2Client, util
 from google.protobuf.json_format import MessageToDict
 import logging
 import json
+import sys
 
 # logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s', level=logging.DEBUG)
 
@@ -38,6 +39,7 @@ def read_ids_from_file():
             file.write('\n')
 
     print("saved")
+    sys.exit(0)
 
 
 @dota.on('match_details')
