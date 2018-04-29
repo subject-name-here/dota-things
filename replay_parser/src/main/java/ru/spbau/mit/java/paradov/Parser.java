@@ -1,16 +1,12 @@
 package ru.spbau.mit.java.paradov;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import ru.spbau.mit.java.paradov.util.EntityType;
 import ru.spbau.mit.java.paradov.util.IntPair;
 import skadistats.clarity.Clarity;
 import skadistats.clarity.model.*;
+import skadistats.clarity.model.Vector;
 import skadistats.clarity.processor.entities.OnEntityCreated;
-import skadistats.clarity.processor.entities.OnEntityPropertyChanged;
 import skadistats.clarity.processor.entities.OnEntityUpdated;
 import skadistats.clarity.processor.gameevents.OnCombatLogEntry;
-import skadistats.clarity.processor.gameevents.OnGameEvent;
 import skadistats.clarity.processor.reader.OnTickEnd;
 import skadistats.clarity.processor.reader.OnTickStart;
 import skadistats.clarity.processor.runner.Context;
@@ -19,36 +15,49 @@ import skadistats.clarity.source.MappedFileSource;
 import skadistats.clarity.wire.common.proto.Demo;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
+import static java.lang.Math.abs;
 import static ru.spbau.mit.java.paradov.Constants.*;
 
 /**
- * Class that parses Dota 2 replay file and adds everything it saw in State array.
+ * Class that parses Dota 2 replay file and adds everything it saw in State and Action array.
  */
 public class Parser {
     private State[] states;
+    private Action[] actions;
 
+    /**
+     * Maps creep id to its state. We need to maintain creep list from state to state, add and remove
+     * creeps. If we keep creep states in its outer state, there will be many difficulties
+     * with updating and removing dead creeps. (Map is basically faster.)
+     */
+    private HashMap<Integer, State.CreepState> ourCreeps = new HashMap<>();
+    private HashMap<Integer, State.CreepState> enemyCreeps = new HashMap<>();
+
+    /** Team of our Nevermore. We require that it was the winner's team. */
     private int winnerTeam;
 
+    /** Current tick. */
     private int tick = 0;
+    /** Tick when state 4 began. */
     private int beginTick = 0;
+    /** Tick when state 5 ended. */
     private int endTick = 0;
 
     /**
      * State of the game (has nothing to do with states), that describes game status.
-     * 5 means that game in process, other numbers - game isn't in process.
-     * Useful because states, when status isn't 5, have no info.
+     * 4 means that game in process without creeps, 5 - with creeps, other numbers - game isn't in process.
+     * Useful because states, when status isn't 5 or 4, have no info.
      */
     private int gameState;
 
-    private final Logger log = LoggerFactory.getLogger(Main.class.getPackage().getClass());
+    /** Replay file name. */
     private final String replayFile;
 
     /**
-     * Constructs Parser: gets basic info about match and creates empty states, then writes there
-     * basic match info.
+     * Constructs Parser: gets basic info about match and creates empty states and actions,
+     * then writes there basic match info.
      * @param args args given to Main; first is a way to file
      * @throws IOException if replay isn't found or can't be read
      */
@@ -59,13 +68,15 @@ public class Parser {
         winnerTeam = info.getGameInfo().getDota().getGameWinner();
 
         states = new State[info.getPlaybackTicks()];
+        actions = new Action[info.getPlaybackTicks()];
         String enemyName = info.getGameInfo().getDota().getPlayerInfoList().get(0).getGameTeam() == winnerTeam ?
                 info.getGameInfo().getDota().getPlayerInfoList().get(0).getHeroName() :
                 info.getGameInfo().getDota().getPlayerInfoList().get(1).getHeroName();
 
         for (int i = 0; i < info.getPlaybackTicks(); i++) {
+            actions[i] = new Action();
             states[i] = new State();
-            states[i].ourTeam = winnerTeam - 2;
+            states[i].ourTeam = winnerTeam;
             states[i].enemyName = enemyName;
         }
     }
@@ -75,54 +86,20 @@ public class Parser {
         return states;
     }
 
+    public Action[] getActions() {
+        return actions;
+    }
+
     public IntPair getTickBorders() {
         return new IntPair(beginTick, endTick);
     }
 
-
-
-    private EntityType getEntityType(Entity e) {
-        String entityName = e.getDtClass().getDtName();
-        if (entityName.startsWith("CDOTA_Unit_Hero")) {
-            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
-                    EntityType.OUR_HERO :
-                    EntityType.ENEMY_HERO;
-        }
-
-        if (entityName.startsWith("CDOTA_BaseNPC_Tower")) {
-            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
-                    EntityType.OUR_TOWER :
-                    EntityType.ENEMY_TOWER;
-        }
-
-        if (entityName.startsWith("CDOTA_BaseNPC_Creep")) {
-            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
-                    EntityType.OUR_CREEP :
-                    EntityType.ENEMY_CREEP;
-        }
-
-        if (entityName.startsWith("CDOTATeam")) {
-            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
-                    EntityType.OUR_TEAM :
-                    EntityType.ENEMY_TEAM;
-        }
-
-        if (entityName.startsWith("CDOTA_Data")) {
-            return e.getProperty("m_iTeamNum") == (Integer) winnerTeam ?
-                    EntityType.OUR_DATA :
-                    EntityType.ENEMY_DATA;
-        }
-
-
-        return EntityType.UNKNOWN;
-    }
-
     /**
-     * Saves piece of state from entity.
+     * Gets entity, looks what type it is, depending on type saves info to state.
      * @param e given entity
      */
     private void saveInfoFromEntity(Entity e) {
-        switch (getEntityType(e)) {
+        switch (Util.getEntityType(e, winnerTeam)) {
             case OUR_HERO:
                 states[tick].ourHp = e.getProperty(HP);
                 states[tick].ourMaxHp = e.getProperty(MAX_HP);
@@ -173,8 +150,43 @@ public class Parser {
                         + (Integer) e.getProperty("m_vecDataTeam.0000.m_iUnreliableGold");
 
                 break;
+
+            case OUR_ABILITY:
+                int mana = states[tick - 1].ourMana;
+                switch (Util.getAbilityTypeFromEntity(e)) {
+                    case 1:
+                        states[tick].isOurAbility1Available = Util.isAbilityAvailable(e, mana);
+                        break;
+                    case 2:
+                        states[tick].isOurAbility2Available = Util.isAbilityAvailable(e, mana);
+                        break;
+                    case 3:
+                        states[tick].isOurAbility3Available = Util.isAbilityAvailable(e, mana);
+                        break;
+                    case 4:
+                        states[tick].isOurAbility4Available = Util.isAbilityAvailable(e, mana);
+                        break;
+                }
+
+                break;
+
+            case OUR_CREEP:
+                if (gameState != 5 || Util.getCreepTypeFromEntity(e) == -1)
+                    break;
+
+                Util.updateCreepMapFromEntity(e, ourCreeps);
+                break;
+            case ENEMY_CREEP:
+                if (gameState != 5 || Util.getCreepTypeFromEntity(e) == -1)
+                    break;
+
+                Util.updateCreepMapFromEntity(e, enemyCreeps);
+                break;
+
         }
     }
+
+
 
     @OnTickStart
     public void onTickStart(Context ctx, boolean synthetic) {
@@ -183,8 +195,11 @@ public class Parser {
 
     @OnTickEnd
     public void onTickEnd(Context ctx, boolean synthetic) {
-        if (gameState == 5) {
+        if (gameState == 4 || gameState == 5) {
             Util.stateClosure(tick, states);
+
+            Util.saveCreepInfoToState(states[tick], ourCreeps, true);
+            Util.saveCreepInfoToState(states[tick], enemyCreeps, false);
         }
     }
 
@@ -195,70 +210,68 @@ public class Parser {
 
     @OnEntityUpdated
     public void onUpdated(Entity e, FieldPath[] updatedPaths, int updateCount) {
-        if (gameState != 5) {
+        if (gameState != 5 && gameState != 4) {
             return;
-        }
-
-        if (e.getDtClass().getDtName().startsWith("CDOTA_Ability_")) {
-            //System.out.println(tick);
-            //System.out.println(e);
         }
 
         states[tick].time = tick;
         saveInfoFromEntity(e);
-
-    }
-
-    private String compileName(String attackerName, boolean isIllusion, Integer team) {
-        return attackerName != null ? attackerName + (isIllusion ? " (illusion)" : "") + team.toString(): "UNKNOWN";
-    }
-
-    private String getAttackerNameCompiled(CombatLogEntry cle) {
-        return compileName(cle.getAttackerName(), cle.isAttackerIllusion(), cle.getAttackerTeam());
-    }
-
-    private String getTargetNameCompiled(CombatLogEntry cle) {
-        return compileName(cle.getTargetName(), cle.isTargetIllusion(), cle.getTargetTeam());
     }
 
     @OnCombatLogEntry
     public void onCombatLogEntry(CombatLogEntry cle) {
-        String time = "[Tick " + tick + "]";
-        //System.out.println(cle);
         switch (cle.getType()) {
             case DOTA_COMBATLOG_DAMAGE:
-                log.info("{} {} hits {}{} for {} damage{}",
-                        time,
-                        getAttackerNameCompiled(cle),
-                        getTargetNameCompiled(cle),
-                        !cle.getInflictorName().equals("dota_unknown") ? String.format(" with %s", cle.getInflictorName()) : "",
-                        cle.getValue(),
-                        cle.getHealth() != 0 ? String.format(" (%s->%s)", cle.getHealth() + cle.getValue(), cle.getHealth()) : ""
-                );
+                if (cle.getTargetName().equals("npc_dota_hero_nevermore") && cle.getTargetTeam() == winnerTeam - 2) {
+                    String attackerName = cle.getAttackerName();
+
+                    if (attackerName.startsWith("npc_dota_hero_")) {
+                        states[tick].timeSinceDamagedByHero = 0;
+                    } else if (attackerName.startsWith("npc_dota_creep_")) {
+                        states[tick].timeSinceDamagedByCreep = 0;
+                    } else if (attackerName.startsWith("npc_dota_badguys_tower")
+                            || attackerName.startsWith("npc_dota_goodguys_tower")) {
+                        states[tick].timeSinceDamagedByTower = 0;
+                    }
+                } else if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
+                        && cle.getAttackerTeam() == winnerTeam
+                        && cle.getInflictorName().equals("dota_unknown")) {
+
+                    String target = cle.getTargetName();
+                    if (target.startsWith("npc_dota_hero_")) {
+                        actions[tick].actionType = 1;
+                    } else if (target.startsWith("npc_dota_creep_")) {
+                        actions[tick].actionType = 2;
+                    } else if (target.startsWith("npc_dota_badguys_tower_")
+                            || target.startsWith("npc_dota_goodguys_tower")) {
+                        actions[tick].actionType = 4;
+                    }
+                }
+
                 break;
             case DOTA_COMBATLOG_ABILITY:
-                log.info("{} {} {} ability {} (lvl {}){}{}",
-                        time,
-                        getAttackerNameCompiled(cle),
-                        cle.isAbilityToggleOn() || cle.isAbilityToggleOff() ? "toggles" : "casts",
-                        cle.getInflictorName(),
-                        cle.getAbilityLevel(),
-                        cle.isAbilityToggleOn() ? " on" : cle.isAbilityToggleOff() ? " off" : "",
-                        cle.getTargetName().equals("0") ? " on " + getTargetNameCompiled(cle) : ""
-                );
-                break;
-            case DOTA_COMBATLOG_ITEM:
-                /*log.info("{} {} uses {}",
-                        time,
-                        getAttackerNameCompiled(cle),
-                        cle.getInflictorName()
-                );*/
+                if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
+                        && cle.getAttackerTeam() == winnerTeam - 2) {
+                    actions[tick].actionType = 3;
+                    String ability = cle.getInflictorName();
+                    switch (ability) {
+                        case "nevermore_shadowraze1" :
+                            actions[tick].param = 1;
+                            break;
+                        case "nevermore_shadowraze2" :
+                            actions[tick].param = 2;
+                            break;
+                        case "nevermore_shadowraze3" :
+                            actions[tick].param = 3;
+                            break;
+                        case "nevermore_requiem" :
+                            actions[tick].param = 4;
+                            break;
+                    }
+                }
                 break;
             case DOTA_COMBATLOG_GAME_STATE:
-                log.info("State is now {}",
-                        cle.getValue()
-                );
-                if (cle.getValue() == 5) {
+                if (cle.getValue() == 4) {
                     beginTick = tick;
                 } else if (gameState == 5) {
                     endTick = tick;
@@ -266,7 +279,14 @@ public class Parser {
                 }
                 gameState = cle.getValue();
                 break;
-            /*case DOTA_COMBATLOG_PURCHASE:
+            /*case DOTA_COMBATLOG_ITEM:
+                log.info("{} {} uses {}",
+                        time,
+                        getAttackerNameCompiled(cle),
+                        cle.getInflictorName()
+                );
+                break;
+            case DOTA_COMBATLOG_PURCHASE:
                 if (getTargetNameCompiled(cle) == "npc_dota_hero_nevermore"
                         && cle.getTargetTeam() == winnerTeam) {
                     log.info("{} {} buys item {}",
@@ -279,28 +299,9 @@ public class Parser {
         }
     }
 
-    @OnEntityPropertyChanged(classPattern = ".*", propertyPattern = ".*")
-    public void onEntityPropertyChanged(Context ctx, Entity e, FieldPath fp) {
-        if (tick < 3500 || tick > 4000) {
-            return;
-        }
-
-        /*System.out.format(
-                "%6d %s: %s = %s\n",
-                ctx.getTick(),
-                e.getDtClass().getDtName(),
-                e.getDtClass().getNameForFieldPath(fp),
-                e.getPropertyForFieldPath(fp)
-        );*/
-    }
-
     public void run() throws Exception {
-        long tStart = System.currentTimeMillis();
         new SimpleRunner(new MappedFileSource(replayFile)).runWith(this);
-        long tMatch = System.currentTimeMillis() - tStart;
-        log.info("total time taken: {}s", (tMatch) / 1000.0);
     }
-
 
 
 }

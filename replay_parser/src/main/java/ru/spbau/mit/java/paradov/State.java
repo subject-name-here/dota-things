@@ -10,7 +10,7 @@ public class State {
       Data of the game in whole.
     *****************************/
 
-    /** Team of our Nevermore: 0 for radiant, 1 for dire. */
+    /** Team of our Nevermore: 2 for radiant, 3 for dire. */
     int ourTeam;
 
     /** Name of enemy hero. */
@@ -53,36 +53,43 @@ public class State {
 
     int ourMaxMana;
 
+    /** Our hero attack damage. It's calculated as (min basic dmg + max basic dmg) / 2 + bonus dmg. */
     int ourAttackDamage;
 
     /** Gold of our hero. If -1, gold data is invalid. */
     int ourGold = -1;
 
     /** Is castable ability "Shadowraze", near. */
-    boolean isOurAbility1Available;
+    Boolean isOurAbility1Available = null;
 
     /** Is castable ability "Shadowraze", medium. */
-    boolean isOurAbility2Available;
+    Boolean isOurAbility2Available = null;
 
     /** Is castable ability "Shadowraze", far. */
-    boolean isOurAbility3Available;
+    Boolean isOurAbility3Available = null;
 
     /** Is castable ability "Requiem of Souls".*/
-    boolean isOurAbility4Available;
+    Boolean isOurAbility4Available = null;
 
-    int timeSinceDamagedByHero;
 
-    int timeSinceDamagedByTower;
+    /**
+     * Bundle of time since damaged by someone.
+     * -1, if it wasn't yet or was a long time ago.
+     * null, if uninitialized.
+     * Max = 900.
+     */
+    Integer timeSinceDamagedByHero = null;
 
-    int timeSinceDamagedByCreep;
+    Integer timeSinceDamagedByTower = null;
+
+    Integer timeSinceDamagedByCreep = null;
 
     /*/***************************
       Data of enemy in this moment.
     *****************************/
 
     /**
-     * Flag, detecting if enemy visible. Visibility equals to have distance less or equal 1600.
-     * If enemy is not visible, other data is irrelevant. // TODO: think about it.
+     * Flag, detecting if enemy visible by our hero.
      */
     boolean isEnemyVisible;
 
@@ -114,18 +121,13 @@ public class State {
       Data of nearby creeps.
     *****************************/
 
-    class CreepState {
+    static class CreepState {
         /**
          * There are 8 types of creeps:
          * 0 - Melee creep;
          * 1 - Ranged creep;
          * 2 - Siege creep;
-         * 3 - Super melee creep;
-         * 4 - Super ranged creep;
-         * 5 - Super siege creep;
-         * 6 - Mega melee creep;
-         * 7 - Mega ranged creep;
-         * Probably, last five types don't spawn in 1v1 mode, but I'm not sure.
+         * Probably, other five types don't spawn in 1v1 mode, but I'm not sure.
          */
         int type;
 
@@ -140,13 +142,33 @@ public class State {
 
         /** Creep Y coordinate. */
         int y;
+
+        /** Flag detecting if this creep is visible by other team. Useful only for enemy creeps. */
+        boolean isVisible = false;
+
+        /** Creates empty state. */
+        public CreepState() {
+            x = -1;
+            y = -1;
+            hp = -1;
+            maxHp = -1;
+            type = -1;
+        }
+
+        public CreepState(CreepState s) {
+            x = s.x;
+            y = s.y;
+            hp = s.hp;
+            maxHp = s.maxHp;
+            type = s.type;
+        }
     }
 
     /** List of nearby friendly creeps. */
-    ArrayList<CreepState> friendlyCreeps;
+    ArrayList<CreepState> ourCreeps;
 
-    /** List of nearby enemy creeps. */
-    ArrayList<CreepState> EnemyCreeps;
+    /** List of nearby visible enemy creeps. */
+    ArrayList<CreepState> enemyCreeps;
 
     /*/***************************
       Data of middle towers.
@@ -157,13 +179,16 @@ public class State {
 
     int ourTowerMaxHp;
 
-    /** HP of enemy tower. If tower isn't visible, it's set either as max, or as last known value. */
+    /** HP of enemy tower. */
     int enemyTowerHp;
 
     int enemyTowerMaxHp;
 
-    @Override
-    public String toString() {
+
+    /**
+     * Prints all available data of the state.
+     */
+    public void print() {
         if (ourTeam == 2) {
             System.out.printf("DATA: Our Nevermore vs %s. ", enemyName);
             System.out.printf("Tick: %d. Score: %d : %d\n", time, ourScore, enemyScore);
@@ -184,12 +209,26 @@ public class State {
         System.out.printf("Mana: %d / %d  |  ", enemyMana, enemyMaxMana);
         System.out.printf("Level: %d  |  ", enemyLvl);
         System.out.printf("Attack damage: %d \n", enemyAttackDamage);
+        System.out.printf("Coordinates: (%d, %d); ", enemyX, enemyY);
         if (isEnemyVisible) {
-            System.out.printf("Coordinates: (%d, %d); facing %f \n", enemyX, enemyY, enemyFacing);
+            System.out.printf("facing %f \n", enemyFacing);
         } else {
-            System.out.printf("Coordinates: (%d, %d); Enemy isn't visible :(\n", enemyX, enemyY);
+            System.out.print("Enemy isn't visible! \n");
         }
-        return "";
+
+        System.out.print("OUR CREEPS: \n");
+        for (CreepState s : ourCreeps) {
+            System.out.printf("TYPE: %d, HP: %d / %d; Coordinates: (%d, %d) \n", s.type, s.hp, s.maxHp, s.x, s.y);
+        }
+        System.out.print("ENEMY CREEPS: \n");
+        for (CreepState s : enemyCreeps) {
+            System.out.printf("TYPE: %d, HP: %d / %d; Coordinates: (%d, %d) \n", s.type, s.hp, s.maxHp, s.x, s.y);
+        }
+
+        System.out.printf("OUR TOWER: %d / %d\n", ourTowerHp, ourTowerMaxHp);
+        System.out.printf("ENEMY TOWER: %d / %d\n", enemyTowerHp, enemyTowerMaxHp);
+
+        System.out.println();
     }
 
 

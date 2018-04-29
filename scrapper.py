@@ -10,7 +10,7 @@ headers = {
 
 
 matches = set()
-for it in range(108):
+for it in range(108):    # 108 == 3 hours
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text
