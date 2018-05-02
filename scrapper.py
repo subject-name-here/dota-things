@@ -1,6 +1,16 @@
+import sys
 import requests
 import re
 import time
+
+# Part of processing argument
+
+args = sys.argv[1:]
+hours = 1
+if len(args) > 0:
+    hours = int(args[0])
+
+# Part where it gets ids
 
 url = 'https://ru.dotabuff.com/matches?hero=shadow-fiend&game_mode=1v1_solo_mid&skill_bracket=very_high_skill'
 
@@ -10,7 +20,7 @@ headers = {
 
 
 matches = set()
-for it in range(108):    # 108 == 3 hours
+for it in range(36 * hours):    
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text

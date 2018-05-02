@@ -1,6 +1,8 @@
 package ru.spbau.mit.java.paradov;
 
 
+import com.google.gson.Gson;
+
 public class Main {
 
     public static void main(String[] args) throws Exception {
@@ -14,44 +16,19 @@ public class Main {
         int beginTick = parser.getTickBorders().fst;
         int endTick = parser.getTickBorders().snd;
 
-        for (State s: states) {
-            if (s.time >= beginTick && s.time < endTick && s.time != 0) {
-                s.print();
-            }
-        }
-
-        int prevChangedState = 0;
-        for (int i = beginTick; i + 1 < endTick; i++) {
-            State s = states[i];
-            Action a = actions[i];
-            if (s.time != 0 || a.actionType != -1) {
-                if (a.actionType == 3) {
-                    continue;
-                }
-
-                if (a.actionType == 1 || a.actionType == 2 || a.actionType == 4) {
-                    // TODO: get creep number
-                    actions[i].param = 1;
-                    for (int j = 1; j <= 30; j++) {
-                        actions[i - j].actionType = a.actionType;
-                        actions[i - j].param = a.param;
-                    }
-                } else {
-                    a.actionType = 0;
-                    // TODO: get dx and dy from previous changed state
-                    a.dx = states[i].ourX - states[prevChangedState].ourX;
-                    a.dy = states[i].ourY - states[prevChangedState].ourY;
-                }
-                prevChangedState = i;
-            }
-        }
-
         for (int i = beginTick; i < endTick; i++) {
             if (states[i].time != 0) {
-                System.out.println(i);
+                Gson gson = new Gson();
+                /*System.out.println(i);
+                states[i].print();
                 System.out.println(actions[i]);
+                System.out.println();*/
+                String jsonState = gson.toJson(states[i]);
+                String jsonAction = gson.toJson(actions[i]);
+                System.out.println(jsonState);
+                System.out.println(jsonAction);
+                // TODO: sent it to server
             }
         }
-
     }
 }

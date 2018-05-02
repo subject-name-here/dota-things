@@ -4,20 +4,22 @@ import ru.spbau.mit.java.paradov.util.IntPair;
 import skadistats.clarity.Clarity;
 import skadistats.clarity.model.*;
 import skadistats.clarity.model.Vector;
+import skadistats.clarity.processor.entities.Entities;
 import skadistats.clarity.processor.entities.OnEntityCreated;
 import skadistats.clarity.processor.entities.OnEntityUpdated;
 import skadistats.clarity.processor.gameevents.OnCombatLogEntry;
+import skadistats.clarity.processor.reader.OnMessage;
 import skadistats.clarity.processor.reader.OnTickEnd;
 import skadistats.clarity.processor.reader.OnTickStart;
 import skadistats.clarity.processor.runner.Context;
 import skadistats.clarity.processor.runner.SimpleRunner;
 import skadistats.clarity.source.MappedFileSource;
 import skadistats.clarity.wire.common.proto.Demo;
+import skadistats.clarity.wire.common.proto.DotaUserMessages;
 
 import java.io.IOException;
 import java.util.*;
 
-import static java.lang.Math.abs;
 import static ru.spbau.mit.java.paradov.Constants.*;
 
 /**
@@ -187,7 +189,6 @@ public class Parser {
     }
 
 
-
     @OnTickStart
     public void onTickStart(Context ctx, boolean synthetic) {
         tick = ctx.getTick();
@@ -200,6 +201,8 @@ public class Parser {
 
             Util.saveCreepInfoToState(states[tick], ourCreeps, true);
             Util.saveCreepInfoToState(states[tick], enemyCreeps, false);
+
+            Util.actionClosure(tick, states, actions, enemyCreeps);
         }
     }
 
@@ -218,6 +221,48 @@ public class Parser {
         saveInfoFromEntity(e);
     }
 
+    /**
+     * This thing catches messages that were sent by player. Used to get data about movements and
+     * desires to attack. Abilities could be get from here, but it's more useful to get them from
+     * combat log.
+     * @param ctx context (don't really know what is it)
+     * @param message message sent by user
+     */
+    @OnMessage(DotaUserMessages.CDOTAUserMsg_SpectatorPlayerUnitOrders.class)
+    public void onSpectatorPlayerUnitOrders(Context ctx, DotaUserMessages.CDOTAUserMsg_SpectatorPlayerUnitOrders message) {
+        Entity e = ctx.getProcessor(Entities.class).getByIndex(message.getEntindex());
+        int team = e.getProperty("m_iTeamNum");
+        if (team == winnerTeam) {
+            int orderType = message.getOrderType();
+            switch (orderType) {
+                case 1:
+                    actions[tick].actionType = 0;
+                    actions[tick].dx = ((Float) message.getPosition().getX()).intValue();
+                    actions[tick].dy = ((Float) message.getPosition().getY()).intValue();
+                    break;
+                case 2:
+                case 4:
+                    Entity target = ctx.getProcessor(Entities.class).getByIndex(message.getTargetIndex());
+                    String targetName = target.getDtClass().getDtName();
+                    if (targetName.startsWith("CDOTA_Unit_Hero")) {
+                        actions[tick].actionType = 1;
+                    } else if (targetName.startsWith("CDOTA_BaseNPC_Creep")) {
+                        actions[tick].actionType = 2;
+                        actions[tick].param = message.getTargetIndex();
+
+                    } else if (targetName.startsWith("CDOTA_BaseNPC_Tower")) {
+                        actions[tick].actionType = 4;
+                    }
+                    break;
+            }
+            //System.out.println(message);
+        }
+    }
+
+    /**
+     * Processor of combat log. Used to get game state, damage received by our hero and abilities cast.
+     * @param cle combat log entry
+     */
     @OnCombatLogEntry
     public void onCombatLogEntry(CombatLogEntry cle) {
         switch (cle.getType()) {
@@ -233,22 +278,9 @@ public class Parser {
                             || attackerName.startsWith("npc_dota_goodguys_tower")) {
                         states[tick].timeSinceDamagedByTower = 0;
                     }
-                } else if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
-                        && cle.getAttackerTeam() == winnerTeam
-                        && cle.getInflictorName().equals("dota_unknown")) {
-
-                    String target = cle.getTargetName();
-                    if (target.startsWith("npc_dota_hero_")) {
-                        actions[tick].actionType = 1;
-                    } else if (target.startsWith("npc_dota_creep_")) {
-                        actions[tick].actionType = 2;
-                    } else if (target.startsWith("npc_dota_badguys_tower_")
-                            || target.startsWith("npc_dota_goodguys_tower")) {
-                        actions[tick].actionType = 4;
-                    }
                 }
-
                 break;
+
             case DOTA_COMBATLOG_ABILITY:
                 if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
                         && cle.getAttackerTeam() == winnerTeam - 2) {

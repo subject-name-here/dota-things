@@ -2,11 +2,10 @@ package ru.spbau.mit.java.paradov;
 
 import ru.spbau.mit.java.paradov.util.EntityType;
 import ru.spbau.mit.java.paradov.util.IntPair;
-import skadistats.clarity.model.CombatLogEntry;
 import skadistats.clarity.model.Entity;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 
@@ -342,17 +341,23 @@ public class Util {
         }
     }
 
-
-    public static String compileName(String attackerName, boolean isIllusion, Integer team) {
-        return attackerName != null ? attackerName + (isIllusion ? " (illusion)" : "") + team.toString(): "UNKNOWN";
+    public static void actionClosure(int tick, State[] states, Action[] actions,
+                                     Map<Integer, State.CreepState> enemyCreeps) {
+        switch (actions[tick].actionType) {
+            case 0:
+                actions[tick].dx -= states[tick].ourX;
+                actions[tick].dy -= states[tick].ourY;
+                break;
+            case 2:
+                ArrayList<Integer> list = new ArrayList<>(enemyCreeps.keySet());
+                int heroX = states[tick].ourX;
+                int heroY = states[tick].ourY;
+                list.sort(Comparator.comparingInt(s -> squareDistToHero(enemyCreeps.get(s), heroX, heroY)));
+                actions[tick].param = list.indexOf(actions[tick].param);
+                if (actions[tick].param == -1) {
+                    actions[tick].param = 0;
+                }
+                break;
+        }
     }
-
-    public static String getAttackerNameCompiled(CombatLogEntry cle) {
-        return compileName(cle.getAttackerName(), cle.isAttackerIllusion(), cle.getAttackerTeam());
-    }
-
-    public static String getTargetNameCompiled(CombatLogEntry cle) {
-        return compileName(cle.getTargetName(), cle.isTargetIllusion(), cle.getTargetTeam());
-    }
-
 }

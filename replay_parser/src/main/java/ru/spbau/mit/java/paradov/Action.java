@@ -9,6 +9,7 @@ public class Action {
      * 2 - Attack creep (number of the creep is param1)
      * 3 - Use Ability (number of ability is param1)
      * 4 - Attack Tower
+     * -1 - do nothing (continue to make previous action)
      */
     int actionType = -1;
 
@@ -37,6 +38,9 @@ public class Action {
                 break;
             case 4:
                 result += "Attack tower.";
+                break;
+            case -1:
+                result += "Do nothing (continue).";
                 break;
             default:
                 result += "Unknown.";
