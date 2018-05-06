@@ -100,7 +100,7 @@ public class Parser {
      * Gets entity, looks what type it is, depending on type saves info to state.
      * @param e given entity
      */
-    private void saveInfoFromEntity(Entity e) {
+    private boolean saveInfoFromEntity(Entity e) {
         switch (Util.getEntityType(e, winnerTeam)) {
             case OUR_HERO:
                 states[tick].ourHp = e.getProperty(HP);
@@ -131,12 +131,10 @@ public class Parser {
 
             case OUR_TOWER:
                 states[tick].ourTowerHp = e.getProperty(HP);
-                states[tick].ourTowerMaxHp = e.getProperty(MAX_HP);
                 break;
 
             case ENEMY_TOWER:
                 states[tick].enemyTowerHp = e.getProperty(HP);
-                states[tick].enemyTowerMaxHp = e.getProperty(MAX_HP);
                 break;
 
             case OUR_TEAM:
@@ -184,8 +182,11 @@ public class Parser {
 
                 Util.updateCreepMapFromEntity(e, enemyCreeps);
                 break;
-
+            default:
+                return false;
         }
+
+        return true;
     }
 
 
@@ -217,8 +218,9 @@ public class Parser {
             return;
         }
 
-        states[tick].time = tick;
-        saveInfoFromEntity(e);
+        if (saveInfoFromEntity(e)) {
+            
+        }
     }
 
     /**
@@ -235,13 +237,14 @@ public class Parser {
         if (team == winnerTeam) {
             int orderType = message.getOrderType();
             switch (orderType) {
-                case 1:
+                /*case 1:
                     actions[tick].actionType = 0;
                     actions[tick].dx = ((Float) message.getPosition().getX()).intValue();
                     actions[tick].dy = ((Float) message.getPosition().getY()).intValue();
-                    break;
+                    break;*/
                 case 2:
                 case 4:
+                    
                     Entity target = ctx.getProcessor(Entities.class).getByIndex(message.getTargetIndex());
                     String targetName = target.getDtClass().getDtName();
                     if (targetName.startsWith("CDOTA_Unit_Hero")) {
@@ -267,8 +270,9 @@ public class Parser {
     public void onCombatLogEntry(CombatLogEntry cle) {
         switch (cle.getType()) {
             case DOTA_COMBATLOG_DAMAGE:
-                if (cle.getTargetName().equals("npc_dota_hero_nevermore") && cle.getTargetTeam() == winnerTeam - 2) {
+                if (cle.getTargetName().equals("npc_dota_hero_nevermore") && cle.getTargetTeam() == winnerTeam) {
                     String attackerName = cle.getAttackerName();
+                    
 
                     if (attackerName.startsWith("npc_dota_hero_")) {
                         states[tick].timeSinceDamagedByHero = 0;
@@ -278,13 +282,29 @@ public class Parser {
                             || attackerName.startsWith("npc_dota_goodguys_tower")) {
                         states[tick].timeSinceDamagedByTower = 0;
                     }
+                } else if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
+                        && cle.getAttackerTeam() == winnerTeam) {
+                    
+                    if (cle.getTargetName().startsWith("npc_dota_hero")) {
+                        states[tick].recentlyHitHero++;
+                        if (cle.getHealth() == 0) {
+                            states[tick].recentlyKilledHero++;
+                        }
+                    } else if (cle.getTargetName().startsWith("npc_dota_creep") && cle.getTargetTeam() != winnerTeam) {
+                        states[tick].recentlyHitCreep++;
+                        if (cle.getHealth() == 0) {
+                            states[tick].recentlyKilledCreep++;
+                        }
+                    }
                 }
                 break;
 
             case DOTA_COMBATLOG_ABILITY:
                 if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
-                        && cle.getAttackerTeam() == winnerTeam - 2) {
+                        && cle.getAttackerTeam() == winnerTeam) {
                     actions[tick].actionType = 3;
+                    
+
                     String ability = cle.getInflictorName();
                     switch (ability) {
                         case "nevermore_shadowraze1" :
@@ -333,6 +353,17 @@ public class Parser {
 
     public void run() throws Exception {
         new SimpleRunner(new MappedFileSource(replayFile)).runWith(this);
+        
+        // Now it's time to delete close states-actions.
+        
+        int lastIndTick = beginTick;
+        for (int i = beginTick + 2; i < endTick; i += 2) {
+            if (!Util.areStatesClose(states[i], states[lastIndTick])
+                    || !Util.areActionsClose(actions[i], actions[lastIndTick])) {
+                states[i].time = i;
+                lastIndTick = i;
+            }
+        }
     }
 
 

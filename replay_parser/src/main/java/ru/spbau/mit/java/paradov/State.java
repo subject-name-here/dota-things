@@ -117,6 +117,14 @@ public class State {
 
     int enemyAttackDamage;
 
+    int recentlyHitCreep = 0;
+
+    int recentlyKilledCreep = 0;
+
+    int recentlyHitHero = 0;
+
+    int recentlyKilledHero = 0;
+
     /*/***************************
       Data of nearby creeps.
     *****************************/
@@ -177,12 +185,8 @@ public class State {
     /** HP of our tower. */
     int ourTowerHp;
 
-    int ourTowerMaxHp;
-
     /** HP of enemy tower. */
     int enemyTowerHp;
-
-    int enemyTowerMaxHp;
 
 
     /**
@@ -225,11 +229,10 @@ public class State {
             System.out.printf("TYPE: %d, HP: %d / %d; Coordinates: (%d, %d) \n", s.type, s.hp, s.maxHp, s.x, s.y);
         }
 
-        System.out.printf("OUR TOWER: %d / %d\n", ourTowerHp, ourTowerMaxHp);
-        System.out.printf("ENEMY TOWER: %d / %d\n", enemyTowerHp, enemyTowerMaxHp);
+        System.out.printf("OUR TOWER: %d / 1600 \n", ourTowerHp);
+        System.out.printf("ENEMY TOWER: %d / 1600 \n", enemyTowerHp);
 
         System.out.println();
     }
-
 
 }

@@ -12,7 +12,6 @@ public class Main {
         State[] states = parser.getStates();
         Action[] actions = parser.getActions();
 
-
         int beginTick = parser.getTickBorders().fst;
         int endTick = parser.getTickBorders().snd;
 

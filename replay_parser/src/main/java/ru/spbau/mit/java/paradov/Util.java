@@ -5,11 +5,11 @@ import ru.spbau.mit.java.paradov.util.IntPair;
 import skadistats.clarity.model.Entity;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 
 import static java.lang.Integer.min;
+import static java.lang.Math.abs;
 import static ru.spbau.mit.java.paradov.Constants.*;
 
 
@@ -250,19 +250,19 @@ public class Util {
         }
         
         if (states[tick].isOurAbility1Available == null) {
-            states[tick].isOurAbility1Available = states[tick - 1].isOurAbility1Available;
+            states[tick].isOurAbility1Available = states[tick - 1].isOurAbility1Available == null ? false : states[tick - 1].isOurAbility1Available;
         }
 
         if (states[tick].isOurAbility2Available == null) {
-            states[tick].isOurAbility2Available = states[tick - 1].isOurAbility2Available;
+            states[tick].isOurAbility2Available = states[tick - 1].isOurAbility2Available == null ? false : states[tick - 1].isOurAbility2Available;;
         }
 
         if (states[tick].isOurAbility3Available == null) {
-            states[tick].isOurAbility3Available = states[tick - 1].isOurAbility3Available;
+            states[tick].isOurAbility3Available = states[tick - 1].isOurAbility3Available == null ? false : states[tick - 1].isOurAbility3Available;;
         }
 
         if (states[tick].isOurAbility4Available == null) {
-            states[tick].isOurAbility4Available = states[tick - 1].isOurAbility4Available;
+            states[tick].isOurAbility4Available = states[tick - 1].isOurAbility4Available == null ? false : states[tick - 1].isOurAbility4Available;;
         }
 
         if (states[tick].enemyLvl == 0) {
@@ -280,12 +280,10 @@ public class Util {
 
         if (states[tick].ourTowerHp == 0) {
             states[tick].ourTowerHp = states[tick - 1].ourTowerHp;
-            states[tick].ourTowerMaxHp = states[tick - 1].ourTowerMaxHp;
         }
 
         if (states[tick].enemyTowerHp == 0) {
             states[tick].enemyTowerHp = states[tick - 1].enemyTowerHp;
-            states[tick].enemyTowerMaxHp = states[tick - 1].enemyTowerMaxHp;
         }
     }
 
@@ -345,19 +343,68 @@ public class Util {
                                      Map<Integer, State.CreepState> enemyCreeps) {
         switch (actions[tick].actionType) {
             case 0:
-                actions[tick].dx -= states[tick].ourX;
-                actions[tick].dy -= states[tick].ourY;
+            case -1:
+                actions[tick].actionType = 0;
+                /*actions[tick].dx -= states[tick].ourX;
+                actions[tick].dy -= states[tick].ourY;*/
+                actions[tick].dx = states[tick].ourX - states[tick - 1].ourX;
+                actions[tick].dy = states[tick].ourY - states[tick - 1].ourY;
+
+                if (actions[tick].dx == 0 && actions[tick].dy == 0) {
+                    actions[tick].actionType = -1;
+                }
+
                 break;
             case 2:
                 ArrayList<Integer> list = new ArrayList<>(enemyCreeps.keySet());
                 int heroX = states[tick].ourX;
                 int heroY = states[tick].ourY;
                 list.sort(Comparator.comparingInt(s -> squareDistToHero(enemyCreeps.get(s), heroX, heroY)));
-                actions[tick].param = list.indexOf(actions[tick].param);
+                actions[tick].param = list.indexOf(actions[tick].param) + 1;
                 if (actions[tick].param == -1) {
-                    actions[tick].param = 0;
+                    actions[tick].param = 1;
                 }
                 break;
         }
+    }
+
+    /**
+     * Very util function to compare two close states from the same batch.
+     * @param s1 state1
+     * @param s2 state2
+     * @return if states are identical
+     */
+    public static boolean areStatesClose(State s1, State s2) {
+        return s1.ourScore == s2.ourScore && s1.enemyScore == s2.enemyScore &&
+                s1.ourX == s2.ourX && s1.ourY == s2.ourY &&
+                abs(s1.ourFacing - s2.ourFacing) < 0.01 &&
+                s1.ourLvl == s2.ourLvl && s1.ourAttackDamage == s2.ourAttackDamage &&
+                s1.ourGold == s2.ourGold && s1.ourHp == s2.ourHp && s1.ourMana == s2.ourMana &&
+                s1.ourMaxHp == s2.ourMaxHp && s1.ourMaxMana == s2.ourMaxMana && 
+                s1.isOurAbility1Available == s2.isOurAbility1Available &&
+                s1.isOurAbility2Available == s2.isOurAbility2Available &&
+                s1.isOurAbility3Available == s2.isOurAbility3Available &&
+                s1.isOurAbility4Available == s2.isOurAbility4Available && 
+                s1.isEnemyVisible == s2.isEnemyVisible &&
+                s1.enemyX == s2.enemyX && s1.enemyY == s2.enemyY &&
+                abs(s1.enemyFacing - s2.enemyFacing) < 0.01 &&
+                s1.enemyLvl == s2.enemyLvl && s1.enemyAttackDamage == s2.enemyAttackDamage &&
+                s1.enemyHp == s2.enemyHp && s1.enemyMana == s2.enemyMana &&
+                s1.enemyMaxHp == s2.enemyMaxHp && s1.enemyMaxMana == s2.enemyMaxMana &&
+                s1.recentlyHitCreep == s2.recentlyHitCreep &&
+                s1.recentlyKilledCreep == s2.recentlyKilledCreep &&
+                s1.recentlyHitHero == s2.recentlyHitHero &&
+                s1.recentlyKilledHero == s2.recentlyKilledHero &&
+                s1.ourCreeps.equals(s2.ourCreeps) &&
+                s1.enemyCreeps.equals(s2.enemyCreeps) &&
+                s1.ourTowerHp == s2.ourTowerHp && s1.enemyTowerHp == s2.enemyTowerHp;
+    }
+
+
+
+    public static boolean areActionsClose(Action a1, Action a2) {
+        return a1.actionType == a2.actionType &&
+                a1.param == a2.param &&
+                a1.dx == a2.dx && a1.dy == a2.dy;
     }
 }
