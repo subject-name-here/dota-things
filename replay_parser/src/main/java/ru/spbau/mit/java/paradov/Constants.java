@@ -29,7 +29,7 @@ public class Constants {
 
     public static final String ABILITY_COOLDOWN = "m_fCooldown";
     public static final String ABILITY_RANGE = "m_iCastRange";
-    public static final String IS_ABILITY_ACTIVATED = "m_bActivated";
+    public static final String IS_ABILITY_ACTIVATED = "m_bInAbilityPhase";
     public static final String ABILITY_COST = "m_iManaCost";
 
     // Some kind of creep id.

@@ -71,9 +71,10 @@ public class Parser {
 
         states = new State[info.getPlaybackTicks()];
         actions = new Action[info.getPlaybackTicks()];
-        String enemyName = info.getGameInfo().getDota().getPlayerInfoList().get(0).getGameTeam() == winnerTeam ?
-                info.getGameInfo().getDota().getPlayerInfoList().get(0).getHeroName() :
-                info.getGameInfo().getDota().getPlayerInfoList().get(1).getHeroName();
+        String enemyName = info.getGameInfo().getDota().getPlayerInfo(0).getGameTeam() == winnerTeam ?
+                info.getGameInfo().getDota().getPlayerInfo(0).getHeroName() :
+                info.getGameInfo().getDota().getPlayerInfo(1).getHeroName();
+        enemyName = enemyName.replace("npc_dota_hero_", "");
 
         for (int i = 0; i < info.getPlaybackTicks(); i++) {
             actions[i] = new Action();
@@ -203,7 +204,7 @@ public class Parser {
             Util.saveCreepInfoToState(states[tick], ourCreeps, true);
             Util.saveCreepInfoToState(states[tick], enemyCreeps, false);
 
-            Util.actionClosure(tick, states, actions, enemyCreeps);
+            Util.actionClosure(tick, states, actions, enemyCreeps, ourCreeps);
         }
     }
 
@@ -218,15 +219,12 @@ public class Parser {
             return;
         }
 
-        if (saveInfoFromEntity(e)) {
-            
-        }
+        saveInfoFromEntity(e);
     }
 
     /**
-     * This thing catches messages that were sent by player. Used to get data about movements and
-     * desires to attack. Abilities could be get from here, but it's more useful to get them from
-     * combat log.
+     * This thing catches messages that were sent by player. Used to get data about
+     * desires to attack and abilities.
      * @param ctx context (don't really know what is it)
      * @param message message sent by user
      */
@@ -236,29 +234,27 @@ public class Parser {
         int team = e.getProperty("m_iTeamNum");
         if (team == winnerTeam) {
             int orderType = message.getOrderType();
-            switch (orderType) {
-                /*case 1:
-                    actions[tick].actionType = 0;
-                    actions[tick].dx = ((Float) message.getPosition().getX()).intValue();
-                    actions[tick].dy = ((Float) message.getPosition().getY()).intValue();
-                    break;*/
-                case 2:
-                case 4:
-                    
-                    Entity target = ctx.getProcessor(Entities.class).getByIndex(message.getTargetIndex());
-                    String targetName = target.getDtClass().getDtName();
-                    if (targetName.startsWith("CDOTA_Unit_Hero")) {
-                        actions[tick].actionType = 1;
-                    } else if (targetName.startsWith("CDOTA_BaseNPC_Creep")) {
-                        actions[tick].actionType = 2;
-                        actions[tick].param = message.getTargetIndex();
 
-                    } else if (targetName.startsWith("CDOTA_BaseNPC_Tower")) {
-                        actions[tick].actionType = 4;
-                    }
-                    break;
+            if (orderType == 2 || orderType == 4) {
+                Entity target = ctx.getProcessor(Entities.class).getByIndex(message.getTargetIndex());
+                String targetName = target.getDtClass().getDtName();
+                if (targetName.startsWith("CDOTA_Unit_Hero")) {
+                    actions[tick].actionType = 1;
+                } else if (targetName.startsWith("CDOTA_BaseNPC_Creep")) {
+                    actions[tick].actionType = 2;
+                    actions[tick].param = message.getTargetIndex();
+
+                } else if (targetName.startsWith("CDOTA_BaseNPC_Tower")) {
+                    actions[tick].actionType = 4;
+                }
+
+            } else if (orderType == 8) {
+                Entity ability = ctx.getProcessor(Entities.class).getByIndex(message.getAbilityId());
+                if (Util.getAbilityTypeFromEntity(ability) != 0) {
+                    actions[tick].actionType = 3;
+                    actions[tick].param = Util.getAbilityTypeFromEntity(ability);
+                }
             }
-            //System.out.println(message);
         }
     }
 
@@ -272,7 +268,6 @@ public class Parser {
             case DOTA_COMBATLOG_DAMAGE:
                 if (cle.getTargetName().equals("npc_dota_hero_nevermore") && cle.getTargetTeam() == winnerTeam) {
                     String attackerName = cle.getAttackerName();
-                    
 
                     if (attackerName.startsWith("npc_dota_hero_")) {
                         states[tick].timeSinceDamagedByHero = 0;
@@ -298,56 +293,15 @@ public class Parser {
                     }
                 }
                 break;
-
-            case DOTA_COMBATLOG_ABILITY:
-                if (cle.getAttackerName().equals("npc_dota_hero_nevermore")
-                        && cle.getAttackerTeam() == winnerTeam) {
-                    actions[tick].actionType = 3;
-                    
-
-                    String ability = cle.getInflictorName();
-                    switch (ability) {
-                        case "nevermore_shadowraze1" :
-                            actions[tick].param = 1;
-                            break;
-                        case "nevermore_shadowraze2" :
-                            actions[tick].param = 2;
-                            break;
-                        case "nevermore_shadowraze3" :
-                            actions[tick].param = 3;
-                            break;
-                        case "nevermore_requiem" :
-                            actions[tick].param = 4;
-                            break;
-                    }
-                }
-                break;
             case DOTA_COMBATLOG_GAME_STATE:
                 if (cle.getValue() == 4) {
                     beginTick = tick;
                 } else if (gameState == 5) {
-                    endTick = tick;
+                    endTick = tick - 2;
 
                 }
                 gameState = cle.getValue();
                 break;
-            /*case DOTA_COMBATLOG_ITEM:
-                log.info("{} {} uses {}",
-                        time,
-                        getAttackerNameCompiled(cle),
-                        cle.getInflictorName()
-                );
-                break;
-            case DOTA_COMBATLOG_PURCHASE:
-                if (getTargetNameCompiled(cle) == "npc_dota_hero_nevermore"
-                        && cle.getTargetTeam() == winnerTeam) {
-                    log.info("{} {} buys item {}",
-                            time,
-                            getTargetNameCompiled(cle),
-                            cle.getValueName()
-                    );
-                }
-                break;*/
         }
     }
 
@@ -359,7 +313,8 @@ public class Parser {
         int lastIndTick = beginTick;
         for (int i = beginTick + 2; i < endTick; i += 2) {
             if (!Util.areStatesClose(states[i], states[lastIndTick])
-                    || !Util.areActionsClose(actions[i], actions[lastIndTick])) {
+                    || actions[i].actionType != -1
+                    || actions[i].actionType == -1 && actions[lastIndTick].actionType != -1) {
                 states[i].time = i;
                 lastIndTick = i;
             }

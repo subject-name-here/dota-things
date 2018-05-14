@@ -184,6 +184,7 @@ public class Util {
     public static boolean isAbilityAvailable(Entity e, int mana) {
         return (Float) e.getProperty(ABILITY_COOLDOWN) == 0
                 && !(Boolean) e.getProperty(IS_ABILITY_ACTIVATED)
+                && (Integer) e.getProperty("m_iLevel") != 0
                 && mana >= (Integer) e.getProperty(ABILITY_COST);
     }
 
@@ -340,7 +341,8 @@ public class Util {
     }
 
     public static void actionClosure(int tick, State[] states, Action[] actions,
-                                     Map<Integer, State.CreepState> enemyCreeps) {
+                                     Map<Integer, State.CreepState> enemyCreeps,
+                                     Map<Integer, State.CreepState> ourCreeps) {
         switch (actions[tick].actionType) {
             case 0:
             case -1:
@@ -356,15 +358,42 @@ public class Util {
 
                 break;
             case 2:
-                ArrayList<Integer> list = new ArrayList<>(enemyCreeps.keySet());
+                ArrayList<Integer> listEnemy = new ArrayList<>(enemyCreeps.keySet());
+                ArrayList<Integer> listOur = new ArrayList<>(ourCreeps.keySet());
                 int heroX = states[tick].ourX;
                 int heroY = states[tick].ourY;
-                list.sort(Comparator.comparingInt(s -> squareDistToHero(enemyCreeps.get(s), heroX, heroY)));
-                actions[tick].param = list.indexOf(actions[tick].param) + 1;
-                if (actions[tick].param == -1) {
-                    actions[tick].param = 1;
+
+                listEnemy.sort(Comparator.comparingInt(s -> squareDistToHero(enemyCreeps.get(s), heroX, heroY)));
+                listOur.sort(Comparator.comparingInt(s -> squareDistToHero(ourCreeps.get(s), heroX, heroY)));
+
+                int num = actions[tick].param;
+
+                if (listOur.contains(num)) {
+                    actions[tick].actionType = 5;
+                    actions[tick].param = listOur.indexOf(num) + 1;
+                } else {
+                    actions[tick].param = listEnemy.indexOf(num) + 1;
+                    if (actions[tick].param == 0) {
+                        actions[tick].param = 1;
+                    }
                 }
+
                 break;
+            case 3:
+                switch (actions[tick].param) {
+                    case 1:
+                        states[tick].isOurAbility1Available = true;
+                        break;
+                    case 2:
+                        states[tick].isOurAbility2Available = true;
+                        break;
+                    case 3:
+                        states[tick].isOurAbility3Available = true;
+                        break;
+                    case 4:
+                        states[tick].isOurAbility4Available = true;
+                        break;
+                }
         }
     }
 
@@ -398,13 +427,5 @@ public class Util {
                 s1.ourCreeps.equals(s2.ourCreeps) &&
                 s1.enemyCreeps.equals(s2.enemyCreeps) &&
                 s1.ourTowerHp == s2.ourTowerHp && s1.enemyTowerHp == s2.enemyTowerHp;
-    }
-
-
-
-    public static boolean areActionsClose(Action a1, Action a2) {
-        return a1.actionType == a2.actionType &&
-                a1.param == a2.param &&
-                a1.dx == a2.dx && a1.dy == a2.dy;
     }
 }

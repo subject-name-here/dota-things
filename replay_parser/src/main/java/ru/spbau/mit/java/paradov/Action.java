@@ -6,9 +6,10 @@ public class Action {
      * Type of action:
      * 0 - Change coordinates
      * 1 - Attack Hero
-     * 2 - Attack creep (number of the creep is param1. Numeration from 1!!)
+     * 2 - Attack enemy creep (number of the creep is param1. Numeration from 1!!)
      * 3 - Use Ability (number of ability is param1)
      * 4 - Attack Tower
+     * 5 - Attack our creep (number of the creep is param1. Numeration from 1!!)
      * -1 - do nothing (continue to make previous action)
      */
     int actionType = -1;
