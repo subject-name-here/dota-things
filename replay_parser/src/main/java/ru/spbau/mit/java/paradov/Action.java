@@ -12,14 +12,14 @@ public class Action {
      * 5 - Attack our creep (number of the creep is param1. Numeration from 1!!)
      * -1 - do nothing (continue to make previous action)
      */
-    int actionType = -1;
+    public int actionType = -1;
 
     /** Parameter of action. */
-    int param;
+    public int param;
 
     /** Coordinates change. */
-    int dx;
-    int dy;
+    public int dx;
+    public int dy;
 
     @Override
     public String toString() {
