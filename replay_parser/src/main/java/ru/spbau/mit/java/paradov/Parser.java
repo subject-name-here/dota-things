@@ -63,8 +63,8 @@ public class Parser {
      * @param args args given to Main; first is a way to file
      * @throws IOException if replay isn't found or can't be read
      */
-    public Parser(String[] args) throws IOException {
-        replayFile = args[0];
+    public Parser(String arg) throws IOException {
+        replayFile = arg;
 
         Demo.CDemoFileInfo info = Clarity.infoForFile(replayFile);
         winnerTeam = info.getGameInfo().getDota().getGameWinner();

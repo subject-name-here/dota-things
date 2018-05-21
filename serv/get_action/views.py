@@ -5,6 +5,8 @@ from saver.models import Action, State, CreepState
 
 
 def get_action(request):
+    print("entered")
+
     json_data_state = request.GET.get('state')
     deserialized = json.loads(json_data_state)
 
