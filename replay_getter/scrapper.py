@@ -6,9 +6,9 @@ import time
 # Part of processing argument
 
 args = sys.argv[1:]
-hours = 1
+hours = 1.0
 if len(args) > 0:
-    hours = int(args[0])
+    hours = float(args[0])
 
 # Part where it gets ids
 
@@ -20,7 +20,7 @@ headers = {
 
 
 matches = set()
-for it in range(36 * hours):    
+for it in range(int(36 * hours)):    
     print("Iteration #", it)
     try:
         response = requests.get(url, headers=headers).text
