@@ -2,15 +2,15 @@ Action = {}
 
 local bot = GetBot()
 
-local ACTION_MOVE = 0
-local ACTION_ATTACK_HERO = 1
-local ACTION_ATTACK_CREEP = 2
-local ACTION_USE_ABILITY = 3
-local ACTION_ATTACK_TOWER = 4
-local ACTION_ATTACK_OUR_CREEP = 5
+local ACTION_MOVE = "0"
+local ACTION_ATTACK_HERO = "1"
+local ACTION_ATTACK_CREEP = "2"
+local ACTION_USE_ABILITY = "3"
+local ACTION_ATTACK_TOWER = "4"
+local ACTION_ATTACK_OUR_CREEP = "5"
 -- DOTO: think about discrete moving
-local ACTION_MOVE_DISCRETE = 6
-local ACTION_DO_NOTHING = -1
+local ACTION_MOVE_DISCRETE = "6"
+local ACTION_DO_NOTHING = "-1"
 
 local failed = 0
 
@@ -28,20 +28,20 @@ local ABILITY = {
 function move_delta(delta_vector)
     local position = bot:GetLocation()
 
-    print('MOVE', delta_vector[1], delta_vector[2])
-    position[1] = position[1] + delta_vector[1]
-    position[2] = position[2] + delta_vector[2]
+    print('MOVE', delta_vector[3], delta_vector[4])
+    position[1] = position[1] + delta_vector[3]
+    position[2] = position[2] + delta_vector[4]
 
     bot:Action_MoveToLocation(position)
 end
 
 -- 16 possible directions: 0-15
 function move_discrete(direction)
-    print('MOVE DISCRETE', direction)
+    print('MOVE DISCRETE', direction[2])
     local position = bot:GetLocation()
     local x = 100
     local y = 0
-    local theta = 0 + direction * (math.pi / 8)
+    local theta = 0 + direction[2] * (math.pi / 8)
     local sin_theta = math.sin(theta)
     local cos_theta = math.cos(theta)
 
@@ -115,27 +115,23 @@ end
 -- @param action_info action info {'action': action id, 'params': action parameters}
 --
 function Action.execute_action(action_info)
-    local action = action_info['action']
-    local action_params = action_info['params']
+    local action = action_info[1]
     failed = 0
 
     upgrade_abilities()
 
     if action == ACTION_MOVE then
-        -- Consider params[1], params[2] as x, y of delta vector
-        move_delta(action_params)
+        move_delta(action_info)
     elseif action == ACTION_ATTACK_HERO then
         attack_hero()
     elseif action == ACTION_USE_ABILITY then
-        -- Consider params[1] as ability index
-        use_ability(action_params[1])
+        use_ability(action_info[2])
     elseif action == ACTION_ATTACK_CREEP then
-        -- Consider params[1] as index in nearby creeps table
-        attack_creep(action_params[1])
+        attack_creep(action_info[2])
     elseif action == ACTION_ATTACK_TOWER then
         attack_tower()
     elseif action == ACTION_MOVE_DISCRETE then
-        move_discrete(action_params[1])
+        move_discrete(action_info)
     elseif action == ACTION_DO_NOTHING then
         -- do nothing
     end

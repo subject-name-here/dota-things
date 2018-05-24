@@ -1,5 +1,3 @@
-require(GetScriptDirectory() .. '/util/json')
-
 local Observation = require(GetScriptDirectory() .. '/agent_utils/observation')
 local Action = require(GetScriptDirectory() .. '/agent_utils/action')
 
@@ -45,25 +43,29 @@ function create_message(message, type)
 end
 
 
+function string:split(sep)
+   local sep, fields = sep or ":", {}
+   local pattern = string.format("([^%s]+)", sep)
+   self:gsub(pattern, function(c) fields[#fields+1] = c end)
+   return fields
+end
+
 --- Send JSON message to bot server.
 -- @param json_message message to send
 -- @param route route ('/what_next' or '/observation')
 -- @param callback on responce received callback
 --
 function send_message(json_message, route, callback)
-    local req = CreateHTTPRequest('http://127.0.0.1:22229/get/get_action')
+    local req = CreateHTTPRequest(':22229' .. '/get/get_action')
     req:SetHTTPRequestRawPostBody('application/json', json_message)
-    req:Send(function(result)
+    req:Send(function(result)     
         for k, v in pairs(result) do
             if k == 'Body' then
                 if v ~= '' then
-                    print("sending inside")
-                    local responce = Json.Decode(v)
-                    if callback ~= nil then
-                        callback(responce)
-                    end
-                    print(response)
-                    current_action = responce['action']
+                    print("received from serv:")
+                    print(v)
+                    local r = v:split(',')
+                    current_action = r
                     fsm_state = ACTION_RECEIVED
                 else
 		    -- For some reason we failed. Well, let's try again...

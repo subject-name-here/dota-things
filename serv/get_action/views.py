@@ -1,5 +1,6 @@
 import json
 from django.http import HttpResponse, JsonResponse
+from django.core import serializers
 
 from saver.models import Action, State, CreepState
 
@@ -7,57 +8,66 @@ from saver.models import Action, State, CreepState
 def get_action(request):
     print("entered")
 
-    json_data_state = request.GET.get('state')
-    deserialized = json.loads(json_data_state)
+    json_state = json.loads(request.body.decode("utf-8"), )["content"]["observation"]
 
     s = State()
-    s.our_team = deserialized["ourTeam"]
+    '''s.our_team = deserialized["ourTeam"]
     s.enemy_hero = deserialized["enemyName"]
 
     our_score = deserialized["ourScore"]
     enemy_score = deserialized["enemyScore"]
-    s.score = our_score * 2 + enemy_score
+    s.score = our_score * 2 + enemy_score'''
 
-    s.x = deserialized["ourX"]
-    s.y = deserialized["ourY"]
-    s.facing = deserialized["ourFacing"]
+    deserialized = json_state["self_info"]
 
-    s.lvl = deserialized["ourLvl"]
-    s.damage = deserialized["ourAttackDamage"]
-    s.gold = deserialized["ourGold"]
+    s.damage = deserialized[0]
+    s.lvl = deserialized[1]
+    s.gold = deserialized[2]
 
-    s.hp = deserialized["ourHp"]
-    s.max_hp = deserialized["ourMaxHp"]
-    s.mana = deserialized["ourMana"]
-    s.max_mana = deserialized["ourMaxMana"]
+    s.hp = deserialized[3]
+    s.max_hp = deserialized[4]
+    s.mana = deserialized[5]
+    s.max_mana = deserialized[6]
 
-    s.available1 = deserialized["isOurAbility1Available"]
-    s.available2 = deserialized["isOurAbility2Available"]
-    s.available3 = deserialized["isOurAbility3Available"]
-    s.available4 = deserialized["isOurAbility4Available"]
+    s.facing = deserialized[7]
 
-    s.time_since_damage_by_hero = deserialized["timeSinceDamagedByHero"]
-    s.time_since_damage_by_creep = deserialized["timeSinceDamagedByCreep"]
-    s.time_since_damage_by_tower = deserialized["timeSinceDamagedByTower"]
+    s.available1 = deserialized[8]
+    s.available2 = deserialized[9]
+    s.available3 = deserialized[10]
+    s.available4 = deserialized[11]
 
-    s.enemy_visible = deserialized["isEnemyVisible"]
-    s.enemy_x = deserialized["enemyX"]
-    s.enemy_y = deserialized["enemyY"]
-    s.enemy_facing = deserialized["enemyFacing"]
+    s.x = deserialized[12]
+    s.y = deserialized[13]
 
-    s.enemy_lvl = deserialized["enemyLvl"]
-    s.enemy_damage = deserialized["enemyAttackDamage"]
+    deserialized = json_state["damage_info"]
 
-    s.enemy_hp = deserialized["enemyHp"]
-    s.enemy_max_hp = deserialized["enemyMaxHp"]
-    s.enemy_mana = deserialized["enemyMana"]
-    s.enemy_max_mana = deserialized["enemyMaxMana"]
+    s.time_since_damage_by_hero = deserialized[0]
+    s.time_since_damage_by_creep = deserialized[1]
+    s.time_since_damage_by_tower = deserialized[2]
 
-    s.tower_hp = deserialized["ourTowerHp"]
-    s.enemy_tower_hp = deserialized["enemyTowerHp"]
+    deserialized = json_state["enemy_info"]
+
+    s.enemy_visible = deserialized[0]
+
+    s.enemy_lvl = deserialized[1]
+    s.enemy_damage = deserialized[2]
+
+    s.enemy_hp = deserialized[3]
+    s.enemy_max_hp = deserialized[4]
+    s.enemy_mana = deserialized[5]
+    s.enemy_max_mana = deserialized[6]
+
+    s.enemy_facing = deserialized[7]
+    s.enemy_x = deserialized[8]
+    s.enemy_y = deserialized[9]
+
+    deserialized = json_state["tower_info"]
+
+    s.tower_hp = deserialized[1]
+    s.enemy_tower_hp = deserialized[0]
 
     ###
-
+    '''
     n1 = len(deserialized["ourCreeps"])
     ocs = []
     for i, creep in zip(range(n1), deserialized["ourCreeps"]):
@@ -88,18 +98,24 @@ def get_action(request):
         c.y = creep["y"]
         c.state_host_id = s.id
 
-        ecs.append(c)
+        ecs.append(c)'''
 
     list = State.objects.all()
 
     min = 1e10
-    to_ret = None
+    to_ret = 0
     for sl in list:
         d = dist(s, sl)
         if d < min:
-            to_ret = sl.action_done
+            if sl.action_done.action_type == 0 and sl.action_done.dx != 0:
+                to_ret = sl.action_done
 
-    return JsonResponse(to_ret, False)
+    #to_ret = Action()
+    #to_ret.action_type = 0
+    #to_ret.dx = 
+
+    print([to_ret.action_type, to_ret.param, to_ret.dx, to_ret.dy])
+    return HttpResponse([to_ret.action_type, ',', to_ret.param, ',', to_ret.dx, ',', to_ret.dy])
 
 
 def dist(s1, s2):
@@ -107,9 +123,11 @@ def dist(s1, s2):
     d2 = 50 * (abs(s1.hp - s2.hp) + abs(s1.mana - s2.mana) + abs(s1.lvl - s2.lvl))
 
     d3 = 0
-    if s1.enemy_visible ^ s2.enemy_visible:
+    '''if s1.enemy_visible ^ s2.enemy_visible:
+        nonlocal d3
         d3 = 100000
     else:
-        d3 = (s1.enemy_x - s2.enemy_x) ** 2 + (s1.enemy_y - s2.enemy_y) ** 2
+        nonlocal d3
+        d3 = (s1.enemy_x - s2.enemy_x) ** 2 + (s1.enemy_y - s2.enemy_y) ** 2'''
 
     return d1 + d2 + d3
