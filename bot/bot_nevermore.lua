@@ -12,8 +12,6 @@ local fsm_state = SEND_OBSERVATION
 
 local failed_action = 0
 local this_bot = GetBot()
-local this_player_id = this_bot:GetPlayerID()
-
 
 --- Executes received action.
 -- @param action_info bot action
@@ -24,22 +22,6 @@ function execute_action(action_info)
     if failed_action == 1 then
         print("Failed to execute action.", action_info)
     end
-end
-
-
---- Create JSON message from table 'message' of type 'type'.
--- @param message table containing message
--- @param type type of message e.g. 'what_next' or 'observation'
--- @return JSON encoded {'type': type, 'content': message}
---
-function create_message(message, type)
-    local msg = {
-        ['type'] = type,
-        ['content'] = message
-    }
-
-    local encode_msg = Json.Encode(msg)
-    return encode_msg
 end
 
 
@@ -87,12 +69,9 @@ function send_observation_message()
         print('Bot: the game has ended.')
     end
 
-    local msg = {
-        ['observation'] = Observation.get_observation(),
-        ['done'] = _end
-    }
+    local msg = table_to_json(Observation.get_observation())
 
-    send_message(create_message(msg, 'observation'), '/observation', nil)
+    send_message(msg, '/observation')
 end
 
 
