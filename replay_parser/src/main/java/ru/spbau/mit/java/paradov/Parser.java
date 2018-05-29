@@ -60,7 +60,7 @@ public class Parser {
     /**
      * Constructs Parser: gets basic info about match and creates empty states and actions,
      * then writes there basic match info.
-     * @param args args given to Main; first is a way to file
+     * @param arg arg given to Main - way to directory
      * @throws IOException if replay isn't found or can't be read
      */
     public Parser(String arg) throws IOException {
@@ -71,7 +71,7 @@ public class Parser {
 
         states = new State[info.getPlaybackTicks()];
         actions = new Action[info.getPlaybackTicks()];
-        String enemyName = info.getGameInfo().getDota().getPlayerInfo(0).getGameTeam() == winnerTeam ?
+        String enemyName = info.getGameInfo().getDota().getPlayerInfo(1).getGameTeam() == winnerTeam ?
                 info.getGameInfo().getDota().getPlayerInfo(0).getHeroName() :
                 info.getGameInfo().getDota().getPlayerInfo(1).getHeroName();
         enemyName = enemyName.replace("npc_dota_hero_", "");
@@ -231,7 +231,11 @@ public class Parser {
     @OnMessage(DotaUserMessages.CDOTAUserMsg_SpectatorPlayerUnitOrders.class)
     public void onSpectatorPlayerUnitOrders(Context ctx, DotaUserMessages.CDOTAUserMsg_SpectatorPlayerUnitOrders message) {
         Entity e = ctx.getProcessor(Entities.class).getByIndex(message.getEntindex());
-        int team = e.getProperty("m_iTeamNum");
+        if (e == null || !e.hasProperty(TEAM)) {
+            return;
+        }
+
+        int team = e.getProperty(TEAM);
         if (team == winnerTeam) {
             int orderType = message.getOrderType();
 
@@ -254,6 +258,10 @@ public class Parser {
                     actions[tick].actionType = 3;
                     actions[tick].param = Util.getAbilityTypeFromEntity(ability);
                 }
+            } else if (orderType == 1) {
+                actions[tick].actionType = 0;
+                actions[tick].nx = ((Float) message.getPosition().getX()).intValue();
+                actions[tick].ny = ((Float) message.getPosition().getY()).intValue();
             }
         }
     }

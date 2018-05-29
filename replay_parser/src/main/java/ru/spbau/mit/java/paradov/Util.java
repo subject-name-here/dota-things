@@ -347,12 +347,12 @@ public class Util {
             case 0:
             case -1:
                 actions[tick].actionType = 0;
-                /*actions[tick].dx -= states[tick].ourX;
-                actions[tick].dy -= states[tick].ourY;*/
-                actions[tick].dx = states[tick].ourX - states[tick - 1].ourX;
-                actions[tick].dy = states[tick].ourY - states[tick - 1].ourY;
+                //actions[tick].nx -= states[tick].ourX;
+                //actions[tick].ny -= states[tick].ourY;
+                /*actions[tick].nx = states[tick].ourX - states[tick - 1].ourX;
+                actions[tick].ny = states[tick].ourY - states[tick - 1].ourY;*/
 
-                if (actions[tick].dx == 0 && actions[tick].dy == 0) {
+                if (actions[tick].nx == 0 && actions[tick].ny == 0) {
                     actions[tick].actionType = -1;
                 }
 

@@ -16,10 +16,16 @@ public class Main {
     public static void main(String[] args) throws Exception {
         File folder = new File(args[0]);
         for (File f : folder.listFiles()){
+            System.out.println(f.getName());
             String arg = f.getPath();
             Parser parser = new Parser(arg);
-            parser.run();
 
+            try {
+                parser.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+                continue;
+            }
             State[] states = parser.getStates();
             Action[] actions = parser.getActions();
 
@@ -28,34 +34,31 @@ public class Main {
 
             String url = "http://127.0.0.1:22229/save";
             Gson gson = new Gson();
+            RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(1000).setSocketTimeout(1000).build();
 
             int cnt = 0;
             for (int i = beginTick; i < endTick; i++) {
-                if (states[i].time != 0) {
+                if (states[i].time != 0 && (actions[i].actionType != -1 || cnt % 100 > 85)) {
                     if (cnt % 100 == 0) {
                         System.err.println(cnt);
                     }
 
-                    RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(1000).setSocketTimeout(1000).build();
                     HttpClient client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
                     HttpPost post = new HttpPost(url);
 
-                    /* String jsonState = gson.toJson(states[i]);
-                    String jsonAction = gson.toJson(actions[i]);
-                    System.out.println(jsonState);
-                    System.out.println(jsonAction); */
-
                     StringEntity json = new StringEntity(gson.toJson(new StateActionPair(states[i], actions[i])));
+                    System.err.println(gson.toJson(new StateActionPair(states[i], actions[i])));
                     post.setEntity(json);
                     post.setHeader("Content-type", "application/json");
                     try {
-                        HttpResponse response = client.execute(post);
+                        client.execute(post);
                     } catch (Exception e) {
 
                     }
                     cnt++;
                 }
             }
+            // System.out.println(cnt);
         }
     }
 }

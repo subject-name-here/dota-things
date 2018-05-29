@@ -18,15 +18,15 @@ public class Action {
     public int param;
 
     /** Coordinates change. */
-    public int dx;
-    public int dy;
+    public int nx;
+    public int ny;
 
     @Override
     public String toString() {
         String result = "Action: ";
         switch (actionType) {
             case 0:
-                result += String.format("Move on vector (%d, %d).", dx, dy);
+                result += String.format("Move on vector (%d, %d).", nx, ny);
                 break;
             case 1:
                 result += "Attack hero.";

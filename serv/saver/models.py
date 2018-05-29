@@ -13,10 +13,7 @@ class State(models.Model):
     our_team = models.IntegerField()
     enemy_hero = models.CharField(max_length=50)
 
-    ###
-
-    # So, 0 equals to 0:0, 1 - to 1:0, 2 - to 0:1, 3 - to 1:1
-    score = models.IntegerField()
+    time = models.IntegerField()
 
     ###
 
@@ -37,10 +34,6 @@ class State(models.Model):
     available2 = models.BooleanField()
     available3 = models.BooleanField()
     available4 = models.BooleanField()
-
-    time_since_damage_by_hero = models.IntegerField()
-    time_since_damage_by_creep = models.IntegerField()
-    time_since_damage_by_tower = models.IntegerField()
 
     ###
 
@@ -80,6 +73,3 @@ class CreepState(models.Model):
     type = models.IntegerField()
     num = models.IntegerField()
     isEnemy = models.BooleanField
-
-
-

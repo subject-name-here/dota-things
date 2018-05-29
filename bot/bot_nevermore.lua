@@ -1,3 +1,5 @@
+local json = require(GetScriptDirectory() .. '/util/json')
+
 local Observation = require(GetScriptDirectory() .. '/agent_utils/observation')
 local Action = require(GetScriptDirectory() .. '/agent_utils/action')
 
@@ -35,12 +37,11 @@ end
 --- Send JSON message to bot server.
 -- @param json_message message to send
 -- @param route route ('/what_next' or '/observation')
--- @param callback on responce received callback
 --
-function send_message(json_message, route, callback)
-    local req = CreateHTTPRequest(':22229' .. '/get/get_action')
+function send_message(json_message, route)
+    local req = CreateHTTPRequest(':22229' .. route)
     req:SetHTTPRequestRawPostBody('application/json', json_message)
-    req:Send(function(result)     
+    req:Send(function(result)
         for k, v in pairs(result) do
             if k == 'Body' then
                 if v ~= '' then
@@ -50,7 +51,7 @@ function send_message(json_message, route, callback)
                     current_action = r
                     fsm_state = ACTION_RECEIVED
                 else
-		    -- For some reason we failed. Well, let's try again...
+	                  -- For some reason we failed. Well, let's try again...
                     fsm_state = SEND_OBSERVATION
                 end
             end
@@ -62,16 +63,13 @@ end
 --- Send JSON with current state info.
 --
 function send_observation_message()
-    local _end = false
-
     if GetGameState() ~= 4 and GetGameState() ~= 5 then
-        _end = true
         print('Bot: the game has ended.')
     end
 
-    local msg = table_to_json(Observation.get_observation())
+    local msg = json.stringify(Observation.get_observation())
 
-    send_message(msg, '/observation')
+    send_message(msg, '/get/get_action')
 end
 
 

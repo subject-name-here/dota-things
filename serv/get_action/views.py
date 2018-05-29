@@ -1,22 +1,21 @@
-import json
+import json, random
 from django.http import HttpResponse, JsonResponse
 from django.core import serializers
+from django.db.models import F, Func, Value, FloatField
 
 from saver.models import Action, State, CreepState
 
 
 def get_action(request):
     print("entered")
-
-    json_state = json.loads(request.body.decode("utf-8"), )["content"]["observation"]
+    json_state = json.loads(request.body.decode("utf-8"), )
 
     s = State()
-    '''s.our_team = deserialized["ourTeam"]
-    s.enemy_hero = deserialized["enemyName"]
 
-    our_score = deserialized["ourScore"]
-    enemy_score = deserialized["enemyScore"]
-    s.score = our_score * 2 + enemy_score'''
+    deserialized = json_state["game_info"]
+
+    s.our_team = deserialized[0]
+    s.enemy_hero = deserialized[1][14:]
 
     deserialized = json_state["self_info"]
 
@@ -67,23 +66,25 @@ def get_action(request):
     s.enemy_tower_hp = deserialized[0]
 
     ###
-    '''
-    n1 = len(deserialized["ourCreeps"])
+
+    deserialized = json_state["ally_creeps_info"]
+
+    n1 = len(deserialized)
     ocs = []
-    for i, creep in zip(range(n1), deserialized["ourCreeps"]):
+    for i, creep in zip(range(n1), deserialized):
         c = CreepState()
-        c.type = creep["type"]
+        # c.type = creep["type"]
         c.num = i + 1
         c.isEnemy = False
 
-        c.hp = creep["hp"]
-        c.max_hp = creep["maxHp"]
-        c.x = creep["x"]
-        c.y = creep["y"]
+        c.hp = creep[0]
+        c.max_hp = creep[1]
+        c.x = creep[2]
+        c.y = creep[3]
         c.state_host = s.id
 
         ocs.append(c)
-
+    '''
     n2 = len(deserialized["enemyCreeps"])
     ecs = []
     for i, creep in zip(range(n2), deserialized["enemyCreeps"]):
@@ -100,34 +101,56 @@ def get_action(request):
 
         ecs.append(c)'''
 
-    list = State.objects.all()
+    print("got_data")
 
-    min = 1e10
-    to_ret = 0
-    for sl in list:
-        d = dist(s, sl)
-        if d < min:
-            if sl.action_done.action_type == 0 and sl.action_done.dx != 0:
-                to_ret = sl.action_done
+    restr = 500
 
-    #to_ret = Action()
-    #to_ret.action_type = 0
-    #to_ret.dx = 
+    list = State.objects.filter(our_team__exact=s.our_team).filter(x__gt = s.x - restr)
+    list = list.filter(x__lt = s.x + restr)
+    list = list.filter(y__gt = s.y - restr)
+    list = list.filter(y__lt = s.y + restr).values()
 
-    print([to_ret.action_type, to_ret.param, to_ret.dx, to_ret.dy])
-    return HttpResponse([to_ret.action_type, ',', to_ret.param, ',', to_ret.dx, ',', to_ret.dy])
+    f1 = F('x') - Value(s.x, output_field=FloatField())
+    f2 = f1 ** 2
+    g1 = F('y') - Value(s.y, output_field=FloatField())
+    g2 = g1 ** 2
+
+    t1 = F('hp') - Value(s.hp, output_field=FloatField())
+    t2 = F('mana') - Value(s.mana, output_field=FloatField())
+    t3 = F('lvl') - Value(s.lvl, output_field=FloatField())
+    h1 = 150 * (Func(t1, function='ABS') + Func(t2, function='ABS')) + 200 * Func(t3, function='ABS')
+
+    t1 = Func(F('tower_hp') - Value(s.tower_hp, output_field=FloatField()), function='ABS')
+    t2 = Func(F('enemy_tower_hp') - Value(s.enemy_tower_hp, output_field=FloatField()), function='ABS')
+    h2 = t1 + t2
+
+    dist = f2 + g2 + h1 + h2
 
 
-def dist(s1, s2):
-    d1 = (s1.x - s2.x) ** 2 + (s1.y - s2.y) ** 2
-    d2 = 50 * (abs(s1.hp - s2.hp) + abs(s1.mana - s2.mana) + abs(s1.lvl - s2.lvl))
+    list = list.annotate(dist=dist).order_by(dist)[:15]
+    closests = [Action.objects.get(pk=s['action_done_id']) for s in list]
 
-    d3 = 0
-    '''if s1.enemy_visible ^ s2.enemy_visible:
-        nonlocal d3
-        d3 = 100000
-    else:
-        nonlocal d3
-        d3 = (s1.enemy_x - s2.enemy_x) ** 2 + (s1.enemy_y - s2.enemy_y) ** 2'''
 
-    return d1 + d2 + d3
+    print(len(closests))
+    act = find_nice_action(closests)
+
+    print([act.action_type, act.param, act.dx, act.dy])
+    return HttpResponse([act.action_type, ',', act.param, ',', act.dx, ',', act.dy])
+
+def find_nice_action(closests):
+    buckets = [[], [], [], [], [], [], []]
+
+    for act in closests:
+        buckets[act.action_type + 1].append(act)
+
+    if len(buckets[2]) + len(buckets[3]) + len(buckets[4]) > 7:
+        buckets = buckets[2:5]
+
+    buckets = buckets[1:-1]
+
+    buckets = sorted(buckets, key=lambda l: -len(l))
+
+    if len(buckets[0]) == 0:
+        return random.choice(closests)
+
+    return random.choice(buckets[0])

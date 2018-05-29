@@ -17,6 +17,14 @@ local function get_team()
     end
 end
 
+function get_game_info()
+    local game_info = {
+        get_team(),
+        bot:GetUnitName(),
+    }
+    return game_info
+end
+
 -- Obtain damage info.
 function get_damage_info()
     local damage_info = {
@@ -93,7 +101,7 @@ function get_enemy_info()
     local enemy_hero_input = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 
     local enemy_table = GetUnitList(UNIT_LIST_ENEMY_HEROES)
-    
+
     if enemy_table ~= nil and enemy_table[1] ~= nil then
         local enemy = enemy_table[1]
         local enemy_position = enemy:GetLocation()
@@ -139,6 +147,7 @@ function Observation.get_observation()
     local ally_creeps = get_creeps_info(bot:GetNearbyCreeps(1500, false))
 
     local observation = {
+        ['game_info'] = get_game_info(),
         ['self_info'] = get_self_info(),
         ['enemy_info'] = get_enemy_info(),
         ['enemy_creeps_info'] = enemy_creeps,

@@ -11,8 +11,8 @@ def save(request):
     a.action_type = deserialized["actionType"]
 
     a.param = deserialized["param"]
-    a.dx = deserialized["dx"]
-    a.dy = deserialized["dy"]
+    a.dx = deserialized["nx"]
+    a.dy = deserialized["ny"]
 
     a.save()
 
@@ -22,10 +22,7 @@ def save(request):
     s.action_done_id = a.id
     s.our_team = deserialized["ourTeam"]
     s.enemy_hero = deserialized["enemyName"]
-
-    our_score = deserialized["ourScore"]
-    enemy_score = deserialized["enemyScore"]
-    s.score = our_score * 2 + enemy_score
+    s.time = deserialized["time"]
 
     s.x = deserialized["ourX"]
     s.y = deserialized["ourY"]
@@ -44,10 +41,6 @@ def save(request):
     s.available2 = deserialized["isOurAbility2Available"]
     s.available3 = deserialized["isOurAbility3Available"]
     s.available4 = deserialized["isOurAbility4Available"]
-
-    s.time_since_damage_by_hero = deserialized["timeSinceDamagedByHero"]
-    s.time_since_damage_by_creep = deserialized["timeSinceDamagedByCreep"]
-    s.time_since_damage_by_tower = deserialized["timeSinceDamagedByTower"]
 
     s.enemy_visible = deserialized["isEnemyVisible"]
     s.enemy_x = deserialized["enemyX"]

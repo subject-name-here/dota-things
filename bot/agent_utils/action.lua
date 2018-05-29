@@ -13,6 +13,8 @@ local ACTION_MOVE_DISCRETE = "6"
 local ACTION_DO_NOTHING = "-1"
 
 local failed = 0
+local active = 0
+local cooldown = 20
 
 local ABILITY = {
     bot:GetAbilityByName('nevermore_shadowraze1'),
@@ -23,16 +25,16 @@ local ABILITY = {
 
 
 --- Move by delta vector.
--- @param delta_vector
+-- @param parameters of action; 3 and 4 are for dx and dy
 --
-function move_delta(delta_vector)
+function move_delta(param)
     local position = bot:GetLocation()
 
-    print('MOVE', delta_vector[3], delta_vector[4])
-    position[1] = position[1] + delta_vector[3]
-    position[2] = position[2] + delta_vector[4]
+    print('MOVE', param[3], param[4])
+    position[1] = param[3]
+    position[2] = param[4]
 
-    bot:Action_MoveToLocation(position)
+    bot:Action_MoveDirectly(position)
 end
 
 -- 16 possible directions: 0-15
@@ -62,6 +64,7 @@ function attack_hero()
         if GetUnitToUnitDistance(bot, enemy) < 1500 then
             failed = 0
             bot:Action_AttackUnit(enemy, false)
+            active = cooldown
         end
     end
 end
@@ -71,9 +74,10 @@ end
 --
 function use_ability(ability_idx)
     print('USE ABILITY', ability_idx)
-    local ability = ABILITY[ability_idx]
-    if ability:IsFullyCastable() then
-        bot:Action_UseAbility(ability)
+    local ab = ABILITY[ability_idx]
+    if ab:IsFullyCastable() then
+        bot:Action_UseAbility(ab)
+        active = cooldown
     else
         failed = 1
     end
@@ -83,12 +87,17 @@ end
 -- @param creep_idx index of creep in nearby creeps table.
 --
 function attack_creep(creep_idx)
+    failed = 1
     print('ATTACK CREEP', creep_idx)
     local enemy_creeps = bot:GetNearbyCreeps(1500, true)
-    if #enemy_creeps >= creep_idx then
-        bot:Action_AttackUnit(enemy_creeps[creep_idx], false)
-    else
-        failed = 1
+    local enemy
+    if #enemy_creeps >= 1 then
+        enemy = enemy_creeps[1]
+        if GetUnitToUnitDistance(bot, enemy) < 1500 then
+            failed = 0
+            bot:Action_AttackUnit(enemy, false)
+            active = cooldown
+        end
     end
 end
 
@@ -97,6 +106,7 @@ function attack_tower()
     local towers = bot:GetNearbyTowers(1500, true)
     if #towers > 0 then
         bot:Action_AttackUnit(towers[1], false)
+        active = cooldown
     else
         failed = 1
     end
@@ -117,6 +127,11 @@ end
 function Action.execute_action(action_info)
     local action = action_info[1]
     failed = 0
+
+    if active > 0 then
+        active = active - 1
+        return failed
+    end
 
     upgrade_abilities()
 
