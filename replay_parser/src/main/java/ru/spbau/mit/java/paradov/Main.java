@@ -47,7 +47,6 @@ public class Main {
                     HttpPost post = new HttpPost(url);
 
                     StringEntity json = new StringEntity(gson.toJson(new StateActionPair(states[i], actions[i])));
-                    System.err.println(gson.toJson(new StateActionPair(states[i], actions[i])));
                     post.setEntity(json);
                     post.setHeader("Content-type", "application/json");
                     try {
